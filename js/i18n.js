@@ -103,7 +103,7 @@ const translations = {
   },
   si: {
     pageTitle: 'බ්ලේසර් උකස් කළමනාකරණය | මධුසංක ටේලර්ස්',
-    appTitle: 'බ්ලේසර් උකස් කළමනාකරණය',
+    appTitle: 'Blazer Rental Management',
     businessName: 'මධුසංක ටේලර්ස්',
     langEnglish: 'English',
     langSinhala: 'සිංහල',
