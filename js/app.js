@@ -7,6 +7,7 @@ let rentals = [];
 let returnDateManuallyEdited = false;
 let hasLoadedCloudData = false;
 let syncState = 'loading';
+let previousSnapshot = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -72,6 +73,25 @@ function addDays(iso, days) {
   return d.toISOString().split('T')[0];
 }
 
+function setSubmitButtonLoading(isLoading) {
+  if (!els.submitBtn) return;
+
+  const defaultText = els.submitBtn.dataset.defaultText || els.submitBtn.textContent.trim();
+  if (!els.submitBtn.dataset.defaultText) {
+    els.submitBtn.dataset.defaultText = defaultText;
+  }
+
+  els.submitBtn.disabled = isLoading;
+  els.submitBtn.setAttribute('aria-busy', String(isLoading));
+  els.submitBtn.classList.toggle('opacity-70', isLoading);
+  els.submitBtn.classList.toggle('cursor-not-allowed', isLoading);
+
+  const spinner = '<span class="inline-block h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent align-middle"></span>';
+  els.submitBtn.innerHTML = isLoading
+    ? `${spinner}${t('syncSaving')}`
+    : defaultText;
+}
+
 function compareDates(a, b) {
   return a.localeCompare(b);
 }
@@ -104,7 +124,7 @@ function updateBalance() {
 
 function autoSetReturnDate() {
   if (returnDateManuallyEdited || !els.pickupDate.value) return;
-  els.returnDate.value = addDays(els.pickupDate.value, 3);
+  els.returnDate.value = addDays(els.pickupDate.value, 2);
 }
 
 function isOverdue(rental) {
@@ -167,11 +187,13 @@ function resetForm() {
   els.editId.value = '';
   returnDateManuallyEdited = false;
   els.bookingDate.value = todayISO();
+  els.returnDate.value = '';
   els.advancePaid.value = 0;
   setColorType('Light Color');
   updateTotalPriceFromColorType();
   els.cancelEditBtn.hidden = true;
   updateFormLabels();
+  setSubmitButtonLoading(false);
 }
 
 function updateFormLabels() {
@@ -467,8 +489,63 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  if (!container || !message) return;
+
+  const toast = document.createElement('div');
+  const tone = {
+    success: 'bg-emerald-600 text-white border-emerald-500',
+    error: 'bg-red-600 text-white border-red-500',
+    info: 'bg-brand-600 text-white border-brand-500',
+  };
+
+  toast.className = `pointer-events-auto w-full rounded-lg border px-3 py-2 text-xs font-medium shadow-lg text-white sm:text-sm ${tone[type] || tone.info}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.add('opacity-100');
+  });
+
+  setTimeout(() => {
+    toast.classList.add('opacity-0', 'translate-y-1', 'transition', 'duration-200');
+    setTimeout(() => toast.remove(), 200);
+  }, 2200);
+}
+
+function notifyRemoteBookingChange(previousItems, nextItems) {
+  if (!hasLoadedCloudData || previousItems === nextItems) return;
+
+  const previousMap = new Map((previousItems || []).map((item) => [item.id, item]));
+  const nextMap = new Map((nextItems || []).map((item) => [item.id, item]));
+
+  const added = (nextItems || []).filter((item) => !previousMap.has(item.id));
+  const removed = (previousItems || []).filter((item) => !nextMap.has(item.id));
+  const updated = (nextItems || []).filter((item) => {
+    const prev = previousMap.get(item.id);
+    return prev && JSON.stringify(prev) !== JSON.stringify(item);
+  });
+
+  if (added.length > 0) {
+    showToast(t('toastBookingSaved'), 'success');
+    return;
+  }
+
+  if (removed.length > 0) {
+    showToast(t('toastBookingDeleted'), 'info');
+    return;
+  }
+
+  if (updated.length > 0) {
+    showToast(t('toastBookingUpdated'), 'success');
+  }
+}
+
 function handleSubmit(e) {
   e.preventDefault();
+  if (els.submitBtn?.disabled) return;
+
   const data = getFormData();
 
   if (!data.customerName || !data.phoneNumber || !data.pickupDate || !data.returnDate) {
@@ -486,11 +563,17 @@ function handleSubmit(e) {
     rentals.push({ id: generateId(), ...data });
   }
 
+  setSubmitButtonLoading(true);
   saveRentals()
     .then(() => {
+      const successMessage = els.editId.value ? t('toastBookingUpdated') : t('toastBookingSaved');
+      showToast(successMessage, 'success');
       resetForm();
     })
-    .catch(() => {});
+    .catch(() => {
+      setSubmitButtonLoading(false);
+      showToast(t('toastSyncError'), 'error');
+    });
 }
 
 function handleTableClick(e) {
@@ -503,7 +586,13 @@ function handleTableClick(e) {
 
   if (action === 'return') {
     rental.status = 'Returned';
-    saveRentals().catch(() => {});
+    saveRentals()
+      .then(() => {
+        showToast(t('toastBookingReturned'), 'success');
+      })
+      .catch(() => {
+        showToast(t('toastSyncError'), 'error');
+      });
   } else if (action === 'edit') {
     populateForm(rental);
   } else if (action === 'delete') {
@@ -511,9 +600,12 @@ function handleTableClick(e) {
       rentals = rentals.filter((r) => r.id !== id);
       saveRentals()
         .then(() => {
+          showToast(t('toastBookingDeleted'), 'success');
           if (els.editId.value === id) resetForm();
         })
-        .catch(() => {});
+        .catch(() => {
+          showToast(t('toastSyncError'), 'error');
+        });
     }
   }
 }
@@ -536,11 +628,17 @@ function initEventListeners() {
   els.totalPrice.addEventListener('input', updateBalance);
   els.advancePaid.addEventListener('input', updateBalance);
 
-  els.pickupDate.addEventListener('change', () => {
+  const handlePickupDateChange = () => {
     returnDateManuallyEdited = false;
     autoSetReturnDate();
-  });
+  };
 
+  els.pickupDate.addEventListener('change', handlePickupDateChange);
+  els.pickupDate.addEventListener('input', handlePickupDateChange);
+
+  els.returnDate.addEventListener('change', () => {
+    returnDateManuallyEdited = true;
+  });
   els.returnDate.addEventListener('input', () => {
     returnDateManuallyEdited = true;
   });
@@ -567,7 +665,13 @@ async function init() {
 
   subscribeRentals(
     (items) => {
+      const previousItems = [...rentals];
       rentals = items;
+
+      if (hasLoadedCloudData) {
+        notifyRemoteBookingChange(previousItems, items);
+      }
+
       hasLoadedCloudData = true;
       hideAppLoading();
       setSyncState('saved');
