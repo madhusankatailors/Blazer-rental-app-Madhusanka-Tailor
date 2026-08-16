@@ -124,6 +124,131 @@ Your site will be live at:
 
 ---
 
+## Feature development and maintenance workflow
+
+Use this workflow whenever you want to add new features or improve the app.
+
+### 1. Create a new branch
+
+```bash
+git checkout -b feature/new-feature-name
+```
+
+Example:
+
+```bash
+git checkout -b feature/add-customer-report
+```
+
+### 2. Make your changes
+
+- Update HTML in `index.html` or other pages
+- Add new logic in `js/`
+- Update CSS in `css/styles.css`
+- Keep Firebase rules and config safe
+- Test the feature locally before deployment
+
+### 3. Save and review changes
+
+```bash
+git status
+git diff
+```
+
+### 4. Commit your work
+
+```bash
+git add .
+git commit -m "Add new feature: description"
+```
+
+Good commit messages:
+
+```bash
+git commit -m "Add customer search filter"
+git commit -m "Fix Firebase sync issue"
+git commit -m "Improve mobile booking form"
+```
+
+### 5. Push and deploy
+
+```bash
+git push origin feature/new-feature-name
+```
+
+Then open GitHub and create a pull request. After approval and merge:
+
+```bash
+git checkout main
+git pull origin main
+```
+
+The GitHub Pages workflow in `.github/workflows/pages.yml` will deploy the site automatically when changes are pushed to `main`.
+
+### 6. Firebase updates
+
+If you change Firestore rules or Firebase settings, deploy them manually:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+If you change the Firebase app configuration, update `js/firebase-config.js` and test again.
+
+### 7. Maintenance checklist
+
+- Check login still works
+- Check app loads on GitHub Pages
+- Verify Firestore sync still works
+- Confirm the mobile layout still works
+- Test authentication domain is still authorized in Firebase
+- Keep backups of important data before large changes
+
+---
+
+## Useful Git commands
+
+```bash
+# Clone the repository
+git clone https://github.com/madhusankatailors/Blazer-rental-app-Madhusanka-Tailor.git
+
+# Check current branch and working status
+git status
+git branch
+
+# Create a new branch
+git checkout -b feature/my-change
+
+# Switch to main branch
+git checkout main
+
+# Download latest changes
+git pull origin main
+
+# Add all changes
+git add .
+
+# Commit changes
+git commit -m "Describe your change"
+
+# Push changes to GitHub
+git push origin main
+
+# Push a feature branch
+git push origin feature/my-change
+
+# View recent commit history
+git log --oneline
+
+# Undo last commit (keep changes)
+git reset --soft HEAD~1
+
+# Force switch if needed (only when sure)
+git checkout -f
+```
+
+---
+
 ## Project structure
 
 ```
