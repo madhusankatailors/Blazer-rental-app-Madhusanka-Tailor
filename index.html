@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Blazer Rental Management | Madhusanka Tailors</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          screens: {
+            xs: '480px',
+          },
+          colors: {
+            brand: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 800: '#075985' }
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <div id="appLoading" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-50">
+    <div class="text-center px-4">
+      <div class="inline-block h-10 w-10 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600"></div>
+      <p class="mt-4 text-sm text-slate-600" data-i18n="syncLoading">Loading data...</p>
+    </div>
+  </div>
+
+  <header class="bg-brand-800 text-white shadow-lg safe-x">
+    <div class="max-w-7xl mx-auto px-4 py-4 sm:py-5 sm:px-6 lg:px-8">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight leading-tight" data-i18n="appTitle">Blazer Rental Management</h1>
+          <p class="text-brand-100 text-xs sm:text-sm mt-1" data-i18n="businessName">Madhusanka Tailors</p>
+        </div>
+        <div class="flex flex-col items-end gap-2 shrink-0">
+          <div class="flex items-center gap-2">
+            <div class="inline-flex rounded-lg bg-brand-900/40 p-1 gap-1" role="group" aria-label="Language">
+              <button type="button" id="langEn" data-i18n="langEnglish">English</button>
+              <button type="button" id="langSi" data-i18n="langSinhala">සිංහල</button>
+            </div>
+            <button type="button" id="logoutBtn"
+              class="px-3 py-1.5 rounded-md text-xs font-semibold bg-brand-900/40 text-brand-100 hover:text-white hover:bg-brand-700 transition-colors"
+              data-i18n="btnLogout">
+              Logout
+            </button>
+          </div>
+          <p id="syncStatus" class="text-brand-100 text-[10px] sm:text-xs font-medium text-right leading-snug"></p>
+          <p id="todayDisplay" class="text-brand-100 text-xs sm:text-sm font-medium text-right max-w-[12rem] sm:max-w-none leading-snug"></p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-4 sm:py-6 sm:px-6 lg:px-8 space-y-4 sm:space-y-6 safe-x">
+
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
+        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-500 uppercase tracking-wide leading-tight" data-i18n="statTotalBookings">Total Bookings</p>
+        <p id="statTotal" class="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mt-1">0</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
+        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-500 uppercase tracking-wide leading-tight" data-i18n="statActiveRentals">Active Rentals</p>
+        <p id="statActive" class="text-xl sm:text-2xl lg:text-3xl font-bold text-brand-600 mt-1">0</p>
+      </div>
+      <div class="bg-red-50 rounded-xl shadow-sm border border-red-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
+        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-red-600 uppercase tracking-wide leading-tight" data-i18n="statOverdueItems">Overdue Items</p>
+        <p id="statOverdue" class="text-xl sm:text-2xl lg:text-3xl font-bold text-red-700 mt-1">0</p>
+      </div>
+      <div class="bg-amber-50 rounded-xl shadow-sm border border-amber-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
+        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-amber-700 uppercase tracking-wide leading-tight" data-i18n="statTodayReturns">Today's Returns Due</p>
+        <p id="statTodayReturns" class="text-xl sm:text-2xl lg:text-3xl font-bold text-amber-800 mt-1">0</p>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-4 py-4 sm:px-6 border-b border-slate-200 bg-slate-50">
+          <h2 id="formTitle" class="text-lg font-semibold text-slate-900">New Rental Booking</h2>
+          <p id="formSubtitle" class="text-sm text-slate-500 mt-0.5">Fill in the details below to create a new rental entry.</p>
+      </div>
+      <form id="rentalForm" class="p-4 sm:p-6">
+        <input type="hidden" id="editId" value="" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+
+          <div>
+            <label for="customerName" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelCustomerName">Customer Name</label>
+            <input type="text" id="customerName" required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              data-i18n-placeholder="placeholderFullName" placeholder="Full name" />
+          </div>
+
+          <div>
+            <label for="phoneNumber" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelPhoneNumber">Phone Number</label>
+            <input type="tel" id="phoneNumber" required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              placeholder="07X XXX XXXX" />
+          </div>
+
+          <div>
+            <label for="blazerCode" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelBlazerCode">Blazer Code</label>
+            <input type="number" id="blazerCode" required min="1" step="1"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              data-i18n-placeholder="placeholderBlazerCode" placeholder="e.g. 01, 05" />
+          </div>
+
+          <div>
+            <label for="colorName" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelColorName">Color Name</label>
+            <input type="text" id="colorName" required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              data-i18n-placeholder="placeholderColorName" placeholder="e.g. Navy Blue" />
+          </div>
+
+          <div class="sm:col-span-2">
+            <span class="block text-sm font-medium text-slate-700 mb-2" data-i18n="labelColorType">Color Type</span>
+            <div class="flex flex-col xs:flex-row xs:flex-wrap gap-3 sm:gap-4">
+              <label class="inline-flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="colorType" value="Light Color" checked
+                  class="text-brand-600 focus:ring-brand-500" />
+                <span class="text-sm" data-i18n-color="light">Light Color <span class="text-slate-400">(Rs. 2000)</span></span>
+              </label>
+              <label class="inline-flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="colorType" value="Dark Color"
+                  class="text-brand-600 focus:ring-brand-500" />
+                <span class="text-sm" data-i18n-color="dark">Dark Color <span class="text-slate-400">(Rs. 1750)</span></span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label for="bookingDate" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelBookingDate">Booking Date</label>
+            <input type="date" id="bookingDate" readonly
+              class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600 cursor-not-allowed" />
+          </div>
+
+          <div>
+            <label for="pickupDate" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelPickupDate">Pickup Date</label>
+            <input type="date" id="pickupDate" required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+          </div>
+
+          <div>
+            <label for="returnDate" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelReturnDate">Return Date</label>
+            <input type="date" id="returnDate" required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+            <p class="text-xs text-slate-400 mt-1" data-i18n="returnDateHint">Auto-set to Pickup + 3 days (editable)</p>
+          </div>
+
+          <div>
+            <label for="totalPrice" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelTotalPrice">Total Price (Rs.)</label>
+            <input type="number" id="totalPrice" min="0" step="1"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+          </div>
+
+          <div>
+            <label for="advancePaid" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelAdvancePaid">Advance Paid (Rs.)</label>
+            <input type="number" id="advancePaid" min="0" step="1" value="0"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+          </div>
+
+          <div>
+            <label for="balanceDue" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelBalanceDue">Balance Due (Rs.)</label>
+            <input type="number" id="balanceDue" readonly
+              class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700 font-semibold cursor-not-allowed" />
+          </div>
+
+          <div>
+            <label for="depositType" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelDepositType">Deposit / ID Kept</label>
+            <select id="depositType"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+              <option value="National ID" data-i18n-option="depositNationalId">National ID</option>
+              <option value="Driving License" data-i18n-option="depositDrivingLicense">Driving License</option>
+              <option value="Cash Deposit" data-i18n-option="depositCash">Cash Deposit</option>
+              <option value="None" data-i18n-option="depositNone">None</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="status" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelStatus">Status</label>
+            <select id="status"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+              <option value="Pending" data-i18n-option="statusPending">Pending</option>
+              <option value="Returned" data-i18n-option="statusReturned">Returned</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row flex-wrap gap-3 mt-6 pt-4 border-t border-slate-200">
+          <button type="submit" id="submitBtn"
+            class="w-full sm:w-auto inline-flex items-center justify-center px-5 py-3 sm:py-2.5 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors">
+            Save Booking
+          </button>
+          <button type="button" id="cancelEditBtn" hidden
+            class="w-full sm:w-auto inline-flex items-center justify-center px-5 py-3 sm:py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 transition-colors"
+            data-i18n="btnCancelEdit">
+            Cancel Edit
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-4 py-4 sm:px-6 border-b border-slate-200 bg-slate-50 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-900" data-i18n="dashboardTitle">Rental Dashboard</h2>
+            <p class="text-sm text-slate-500 mt-0.5" data-i18n="dashboardSubtitle">All bookings with overdue tracking</p>
+          </div>
+          <div class="relative w-full sm:w-72">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="search" id="searchInput" data-i18n-placeholder="searchPlaceholder" placeholder="Search code, name, phone..."
+              class="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+          </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row lg:items-end gap-3 pt-3 sm:pt-4 border-t border-slate-200">
+          <div class="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 flex-1">
+            <div>
+              <label for="dateFilterField" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="filterDateField">Filter by Date</label>
+              <select id="dateFilterField"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+                <option value="bookingDate" data-i18n-option="filterBookingDate">Booking Date</option>
+                <option value="pickupDate" data-i18n-option="filterPickupDate">Pickup Date</option>
+                <option value="returnDate" data-i18n-option="filterReturnDate">Return Date</option>
+              </select>
+            </div>
+            <div>
+              <label for="dateFrom" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="filterFromDate">From</label>
+              <input type="date" id="dateFrom"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white" />
+            </div>
+            <div>
+              <label for="dateTo" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="filterToDate">To</label>
+              <input type="date" id="dateTo"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white" />
+            </div>
+            <div class="xs:col-span-2 lg:col-span-1 flex items-end">
+              <button type="button" id="clearFiltersBtn"
+                class="w-full inline-flex items-center justify-center px-4 py-2.5 sm:py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 transition-colors"
+                data-i18n="btnClearFilters">
+                Clear Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p id="mobileCardsHint" class="md:hidden px-4 py-2 text-xs text-slate-400 text-center border-b border-slate-100" data-i18n="mobileCardsHint">Tap a booking below to view details</p>
+
+      <div id="rentalsCards" class="md:hidden divide-y divide-slate-200"></div>
+
+      <p id="tableScrollHint" class="hidden md:block lg:hidden px-4 py-2 text-xs text-slate-400 text-center border-b border-slate-100" data-i18n="tableScrollHint">Swipe horizontally to see all columns</p>
+
+      <div id="tableScroll" class="table-scroll overflow-x-auto hidden md:block">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thBooking">Booking</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thName">Name</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thPhone">Phone</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thCode">Code</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thColor">Color</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thPickup">Pickup</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thReturn">Return</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thPrice">Price</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thAdvance">Advance</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thBalance">Balance</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thDeposit">Deposit/ID</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thStatus">Status</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thActions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rentalsTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
+        </table>
+      </div>
+
+      <div id="emptyState" class="hidden px-6 py-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        <p class="mt-3 text-sm font-medium text-slate-600" id="emptyTitle" data-i18n="emptyTitle">No rental bookings yet</p>
+        <p class="mt-1 text-sm text-slate-400" id="emptySubtitle" data-i18n="emptySubtitle">Create your first booking using the form above.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="max-w-7xl mx-auto px-4 py-4 sm:py-6 sm:px-6 lg:px-8 text-center text-xs text-slate-400 safe-x">
+    <span data-i18n="footerText" class="leading-relaxed">Data saved locally in your browser · Madhusanka Tailors Blazer Rental System</span>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.safe-x {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+input,
+select,
+textarea,
+button {
+  touch-action: manipulation;
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+.table-scroll {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.table-scroll table {
+  min-width: 72rem;
+}
+
+@media (min-width: 768px) {
+  .table-scroll table {
+    min-width: 64rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .table-scroll table {
+    min-width: 100%;
+  }
+}
+
+.table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: rgb(241 245 249);
+}
+
+.rental-card {
+  padding: 1rem;
+}
+
+.rental-card-overdue {
+  background-color: rgb(254 226 226);
+  border-left: 4px solid rgb(220 38 38);
+}
+
+.rental-card-returned {
+  background-color: rgb(240 253 244);
+  border-left: 4px solid rgb(22 163 74);
+}
+
+.rental-card-default {
+  background-color: white;
+  border-left: 4px solid transparent;
+}
+
+.empty-hidden {
+  display: none !important;
+}
+
+.rental-card-actions button {
+  min-height: 2.5rem;
+}
+
+@media (min-width: 640px) {
+  .rental-card-actions button {
+    min-height: 2rem;
+  }
+}

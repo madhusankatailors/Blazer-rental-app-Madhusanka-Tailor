@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Setup Required | Madhusanka Tailors</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex items-center justify-center safe-x px-4 py-8">
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-lg border border-slate-200 p-6 sm:p-8">
+    <h1 class="text-xl font-bold text-brand-800">Firebase Setup Required</h1>
+    <p class="text-sm text-slate-600 mt-3 leading-relaxed">
+      Cloud sync is not configured yet. Open <code class="bg-slate-100 px-1 rounded">js/firebase-config.js</code>
+      and add your Firebase project keys. Then create the login user in Firebase Authentication.
+    </p>
+    <ol class="text-sm text-slate-600 mt-4 space-y-2 list-decimal list-inside">
+      <li>Create a free project at <a class="text-brand-600 underline" href="https://console.firebase.google.com/" target="_blank" rel="noopener">Firebase Console</a></li>
+      <li>Enable <strong>Email/Password</strong> sign-in</li>
+      <li>Create user email: <code class="bg-slate-100 px-1 rounded">madhusankatailors1994@gmail.com</code></li>
+      <li>Enable <strong>Firestore Database</strong></li>
+      <li>Copy web app config into <code class="bg-slate-100 px-1 rounded">js/firebase-config.js</code></li>
+      <li>Deploy Firestore rules from <code class="bg-slate-100 px-1 rounded">firestore.rules</code></li>
+    </ol>
+    <p class="text-sm text-slate-500 mt-4">See <strong>README.md</strong> for full step-by-step instructions.</p>
+    <a href="login.html" class="mt-6 inline-flex items-center justify-center w-full px-5 py-3 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700">
+      Back to Login
+    </a>
+  </div>
+</body>
+</html>
