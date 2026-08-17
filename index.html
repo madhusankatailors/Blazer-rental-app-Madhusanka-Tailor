@@ -104,34 +104,17 @@
               placeholder="07X XXX XXXX" />
           </div>
 
-          <div>
-            <label for="blazerCode" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelBlazerCode">Blazer Code</label>
-            <input type="text" id="blazerCode" required
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-              data-i18n-placeholder="placeholderBlazerCode" placeholder="e.g. 400/9091 or 01" />
-          </div>
-
-          <div>
-            <label for="colorName" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelColorName">Color Name</label>
-            <input type="text" id="colorName" required
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-              data-i18n-placeholder="placeholderColorName" placeholder="e.g. Navy Blue" />
-          </div>
-
-          <div class="sm:col-span-2">
-            <span class="block text-sm font-medium text-slate-700 mb-2" data-i18n="labelColorType">Color Type</span>
-            <div class="flex flex-col xs:flex-row xs:flex-wrap gap-3 sm:gap-4">
-              <label class="inline-flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="colorType" value="Light Color"
-                  class="text-brand-600 focus:ring-brand-500" />
-                <span class="text-sm" data-i18n-color="light">Light Color <span class="text-slate-400">(Rs. 2000)</span></span>
-              </label>
-              <label class="inline-flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="colorType" value="Dark Color" checked
-                  class="text-brand-600 focus:ring-brand-500" />
-                <span class="text-sm" data-i18n-color="dark">Dark Color <span class="text-slate-400">(Rs. 1750)</span></span>
-              </label>
+          <div class="sm:col-span-2 lg:col-span-3">
+            <div class="flex items-center justify-between gap-3 mb-2">
+              <span class="block text-sm font-medium text-slate-700" data-i18n="labelBlazers">Blazers</span>
+              <button type="button" id="addBlazerBtn"
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-brand-300 bg-brand-50 text-brand-700 text-xs font-semibold hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span data-i18n="btnAddBlazer">Add Blazer</span>
+              </button>
             </div>
+            <div id="blazersList" class="space-y-3"></div>
+            <p class="text-xs text-slate-400 mt-2" data-i18n="blazersHint">Add one or more blazer codes for this customer. Total price is calculated automatically.</p>
           </div>
 
           <div>
@@ -153,22 +136,37 @@
             <p class="text-xs text-slate-400 mt-1" data-i18n="returnDateHint">Auto-set to Pickup + 2 days (editable)</p>
           </div>
 
-          <div>
-            <label for="totalPrice" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelTotalPrice">Total Price (Rs.)</label>
-            <input type="number" id="totalPrice" min="0" step="1"
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
-          </div>
+          <div class="sm:col-span-2 lg:col-span-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <span class="block text-sm font-medium text-slate-700 mb-3" data-i18n="labelPayment">Payment</span>
 
-          <div>
-            <label for="advancePaid" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelAdvancePaid">Advance Paid (Rs.)</label>
-            <input type="number" id="advancePaid" min="0" step="1" value="0"
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
-          </div>
+            <div class="grid grid-cols-1 xs:grid-cols-2 gap-2 mb-4">
+              <label class="payment-type-option">
+                <input type="radio" name="paymentType" value="full" checked class="sr-only" />
+                <span class="block text-sm font-semibold text-slate-800" data-i18n="paymentFull">Paid in Full</span>
+                <span class="block text-xs text-slate-500 mt-0.5" data-i18n="paymentFullHint">Customer paid everything now</span>
+              </label>
+              <label class="payment-type-option">
+                <input type="radio" name="paymentType" value="advance" class="sr-only" />
+                <span class="block text-sm font-semibold text-slate-800" data-i18n="paymentAdvance">Advance Only</span>
+                <span class="block text-xs text-slate-500 mt-0.5" data-i18n="paymentAdvanceHint">Customer pays rest on pickup day</span>
+              </label>
+            </div>
 
-          <div>
-            <label for="balanceDue" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelBalanceDue">Balance Due (Rs.)</label>
-            <input type="number" id="balanceDue" readonly
-              class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700 font-semibold cursor-not-allowed" />
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label for="totalPrice" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="labelTotalPrice">Total Price (Rs.)</label>
+                <input type="number" id="totalPrice" min="0" step="1" readonly
+                  class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 cursor-not-allowed" />
+              </div>
+
+              <div id="advanceFieldWrap" hidden>
+                <label for="advancePaid" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="labelPaidNow">Paid Now (Rs.)</label>
+                <input type="number" id="advancePaid" min="0" step="1" value="0"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+              </div>
+
+              <div id="balanceSummary" class="rounded-lg border border-slate-200 bg-white px-3 py-2 min-h-[2.75rem] flex flex-col justify-center"></div>
+            </div>
           </div>
 
           <div>
@@ -189,6 +187,14 @@
               <option value="Pending" data-i18n-option="statusPending">Pending</option>
               <option value="Returned" data-i18n-option="statusReturned">Returned</option>
             </select>
+          </div>
+
+          <div class="sm:col-span-2 lg:col-span-3">
+            <label for="notes" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelNotes">Additional Notes</label>
+            <textarea id="notes" rows="2"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 resize-y min-h-[4.5rem]"
+              data-i18n-placeholder="placeholderNotes" placeholder="e.g. needs alteration, wedding on Saturday, special instructions..."></textarea>
+            <p class="text-xs text-slate-400 mt-1" data-i18n="notesHint">Optional — add any extra details for this booking.</p>
           </div>
         </div>
 
@@ -254,14 +260,12 @@
         </div>
       </div>
 
-      <p id="mobileCardsHint" class="md:hidden px-4 py-2 text-xs text-slate-400 text-center border-b border-slate-100" data-i18n="mobileCardsHint">Tap a booking below to view details</p>
+      <p id="mobileCardsHint" class="md:hidden px-4 py-2 text-xs text-slate-400 text-center border-b border-slate-100" data-i18n="mobileCardsHint">Main booking info below — tap Details for full info</p>
 
       <div id="rentalsCards" class="md:hidden divide-y divide-slate-200"></div>
 
-      <p id="tableScrollHint" class="hidden md:block lg:hidden px-4 py-2 text-xs text-slate-400 text-center border-b border-slate-100" data-i18n="tableScrollHint">Swipe horizontally to see all columns</p>
-
       <div id="tableScroll" class="table-scroll overflow-x-auto hidden md:block">
-        <table class="w-full divide-y divide-slate-200 text-sm table-fixed">
+        <table class="w-full divide-y divide-slate-200 text-sm dashboard-table">
           <thead class="bg-slate-100">
             <tr>
               <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thBooking">Booking</th>
@@ -269,14 +273,10 @@
               <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thPhone">Phone</th>
               <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thCode">Code</th>
               <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thColor">Color</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thPickup">Pickup</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thReturn">Return</th>
               <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thPrice">Price</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thAdvance">Advance</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thBalance">Balance</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thDeposit">Deposit/ID</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thStatus">Status</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thActions">Actions</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thPayment">Payment</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider" data-i18n="thNotes">Notes</th>
+              <th class="px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thDetails">View</th>
             </tr>
           </thead>
           <tbody id="rentalsTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
@@ -292,6 +292,23 @@
       </div>
     </section>
   </main>
+
+  <div id="detailModal" class="detail-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+    <div class="detail-modal-backdrop" data-action="close-modal"></div>
+    <div class="detail-modal-panel">
+      <div class="detail-modal-header">
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-semibold uppercase tracking-wide text-brand-600" data-i18n="detailModalLabel">Booking Details</p>
+          <h2 id="detailModalTitle" class="text-lg font-bold text-slate-900 truncate mt-0.5"></h2>
+        </div>
+        <button type="button" data-action="close-modal" class="detail-modal-close" aria-label="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="detailModalBody" class="detail-modal-body"></div>
+      <div id="detailModalActions" class="detail-modal-actions"></div>
+    </div>
+  </div>
 
   <footer class="max-w-7xl mx-auto px-3 py-3 sm:py-4 sm:px-4 lg:px-6 text-center text-xs text-slate-400 safe-x">
     <span data-i18n="footerText" class="leading-relaxed">Data saved locally in your browser · Madhusanka Tailors Blazer Rental System</span>
