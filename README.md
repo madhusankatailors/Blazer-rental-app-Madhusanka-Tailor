@@ -9,7 +9,7 @@ A web app to manage blazer rentals with **cloud sync**, **login protection**, **
 | Field | Value |
 |-------|-------|
 | **Username** | `madhusanka_tailor` |
-| **Password** | `Manju1975@` |
+| **Password** | `M` |
 
 > The password is checked securely by **Firebase Authentication** (not stored in the website code).
 
@@ -36,7 +36,7 @@ A web app to manage blazer rentals with **cloud sync**, **login protection**, **
 2. Click **Sign-in method → Email/Password → Enable → Save**
 3. Go to **Users → Add user**
    - Email: `madhusankatailors1994@gmail.com`
-   - Password: `Manju1975@`
+   - Password: `M`
 
 ### Enable Firestore
 
@@ -119,7 +119,7 @@ Your site will be live at:
 2. You are redirected to **login.html**
 3. Sign in with:
    - Username: `madhusanka_tailor`
-   - Password: `Manju1975@`
+   - Password: `M`
 4. Add a booking on your phone — it should appear on your computer too
 
 ---
