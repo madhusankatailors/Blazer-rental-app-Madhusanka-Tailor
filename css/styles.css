@@ -35,22 +35,12 @@ button {
 .table-scroll {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
+  overflow-x: hidden;
 }
 
 .table-scroll table {
-  min-width: 72rem;
-}
-
-@media (min-width: 768px) {
-  .table-scroll table {
-    min-width: 64rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .table-scroll table {
-    min-width: 100%;
-  }
+  min-width: 0;
+  width: 100%;
 }
 
 .table-scroll thead th {
@@ -58,6 +48,18 @@ button {
   top: 0;
   z-index: 1;
   background-color: rgb(241 245 249);
+}
+
+.table-scroll th,
+.table-scroll td {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+@media (max-width: 767px) {
+  .table-scroll {
+    overflow-x: auto;
+  }
 }
 
 .rental-card {
@@ -83,12 +85,31 @@ button {
   display: none !important;
 }
 
-.rental-card-actions button {
-  min-height: 2.5rem;
+.rental-card-actions,
+.table-action-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.rental-card-actions {
+  width: 100%;
+}
+
+.rental-card-actions button,
+.table-action-group button {
+  min-height: 2rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
 
 @media (min-width: 640px) {
-  .rental-card-actions button {
-    min-height: 2rem;
+  .rental-card-actions button,
+  .table-action-group button {
+    min-height: 1.8rem;
+    padding-left: 0.45rem;
+    padding-right: 0.45rem;
   }
 }

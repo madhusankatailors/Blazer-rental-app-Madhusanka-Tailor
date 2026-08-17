@@ -98,7 +98,7 @@ function compareDates(a, b) {
 
 function getColorType() {
   const checked = document.querySelector('input[name="colorType"]:checked');
-  return checked ? checked.value : 'Light Color';
+  return checked ? checked.value : 'Dark Color';
 }
 
 function setColorType(value) {
@@ -108,7 +108,7 @@ function setColorType(value) {
 }
 
 function getDefaultPrice(colorType) {
-  return PRICES[colorType] ?? PRICES['Light Color'];
+  return PRICES[colorType] ?? PRICES['Dark Color'];
 }
 
 function updateTotalPriceFromColorType() {
@@ -189,7 +189,7 @@ function resetForm() {
   els.bookingDate.value = todayISO();
   els.returnDate.value = '';
   els.advancePaid.value = 0;
-  setColorType('Light Color');
+  setColorType('Dark Color');
   updateTotalPriceFromColorType();
   els.cancelEditBtn.hidden = true;
   updateFormLabels();
@@ -219,7 +219,7 @@ function getFormData() {
   return {
     customerName: els.customerName.value.trim(),
     phoneNumber: els.phoneNumber.value.trim(),
-    blazerCode: String(parseInt(els.blazerCode.value, 10)).padStart(2, '0'),
+    blazerCode: els.blazerCode.value.trim(),
     colorName: els.colorName.value.trim(),
     colorType: getColorType(),
     bookingDate: els.bookingDate.value,
@@ -237,7 +237,7 @@ function populateForm(rental) {
   els.editId.value = rental.id;
   els.customerName.value = rental.customerName;
   els.phoneNumber.value = rental.phoneNumber;
-  els.blazerCode.value = parseInt(rental.blazerCode, 10);
+  els.blazerCode.value = rental.blazerCode || '';
   els.colorName.value = rental.colorName;
   setColorType(rental.colorType);
   els.bookingDate.value = rental.bookingDate;
@@ -257,11 +257,11 @@ function populateForm(rental) {
 function matchesSearch(rental, query) {
   if (!query) return true;
   const q = query.toLowerCase();
+  const blazerCodeText = String(rental.blazerCode || '').toLowerCase();
   return (
     rental.customerName.toLowerCase().includes(q) ||
     rental.phoneNumber.toLowerCase().includes(q) ||
-    rental.blazerCode.includes(q) ||
-    String(parseInt(rental.blazerCode, 10)).includes(q) ||
+    blazerCodeText.includes(q) ||
     rental.colorName.toLowerCase().includes(q)
   );
 }
@@ -313,11 +313,11 @@ function clearFilters() {
 
 function renderActionButtons(rental, compact = false) {
   const btnClass = compact
-    ? 'flex-1 min-w-[4.5rem] px-2 py-2.5 sm:py-1 text-xs font-medium rounded transition-colors'
-    : 'px-2 py-1 text-xs font-medium rounded transition-colors';
+    ? 'flex-1 min-w-[3.7rem] px-1.5 py-1.5 sm:py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap'
+    : 'px-1.5 py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap';
 
   return `
-    <div class="flex flex-wrap gap-1.5 sm:gap-1 ${compact ? 'rental-card-actions' : ''}">
+    <div class="flex flex-wrap items-center justify-end gap-1 ${compact ? 'rental-card-actions w-full' : 'table-action-group'}">
       ${rental.status === 'Pending'
         ? `<button type="button" data-action="return" data-id="${rental.id}"
             class="${btnClass} bg-green-600 text-white hover:bg-green-700">${escapeHtml(t('btnReturned'))}</button>`
@@ -454,7 +454,7 @@ function renderTable() {
       <td class="px-3 py-3 whitespace-nowrap font-semibold">${formatCurrency(rental.balanceDue)}</td>
       <td class="px-3 py-3 whitespace-nowrap text-xs">${escapeHtml(translateDeposit(rental.depositType))}</td>
       <td class="px-3 py-3 whitespace-nowrap">${renderStatusBadge(rental)}</td>
-      <td class="px-3 py-3 whitespace-nowrap">${renderActionButtons(rental)}</td>
+      <td class="px-2 py-3 whitespace-nowrap text-right">${renderActionButtons(rental)}</td>
     `;
     els.tableBody.appendChild(tr);
   });
