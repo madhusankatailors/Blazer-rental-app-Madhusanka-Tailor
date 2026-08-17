@@ -8,6 +8,7 @@ let returnDateManuallyEdited = false;
 let hasLoadedCloudData = false;
 let syncState = 'loading';
 let previousSnapshot = [];
+let activeDetailRentalId = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -16,16 +17,18 @@ const els = {
   editId: $('editId'),
   customerName: $('customerName'),
   phoneNumber: $('phoneNumber'),
-  blazerCode: $('blazerCode'),
-  colorName: $('colorName'),
+  blazersList: $('blazersList'),
+  addBlazerBtn: $('addBlazerBtn'),
   bookingDate: $('bookingDate'),
   pickupDate: $('pickupDate'),
   returnDate: $('returnDate'),
   totalPrice: $('totalPrice'),
   advancePaid: $('advancePaid'),
-  balanceDue: $('balanceDue'),
+  advanceFieldWrap: $('advanceFieldWrap'),
+  balanceSummary: $('balanceSummary'),
   depositType: $('depositType'),
   status: $('status'),
+  notes: $('notes'),
   submitBtn: $('submitBtn'),
   cancelEditBtn: $('cancelEditBtn'),
   formTitle: $('formTitle'),
@@ -37,9 +40,12 @@ const els = {
   clearFiltersBtn: $('clearFiltersBtn'),
   rentalsCards: $('rentalsCards'),
   tableScroll: $('tableScroll'),
-  tableScrollHint: $('tableScrollHint'),
   mobileCardsHint: $('mobileCardsHint'),
   tableBody: $('rentalsTableBody'),
+  detailModal: $('detailModal'),
+  detailModalTitle: $('detailModalTitle'),
+  detailModalBody: $('detailModalBody'),
+  detailModalActions: $('detailModalActions'),
   emptyState: $('emptyState'),
   emptyTitle: $('emptyTitle'),
   emptySubtitle: $('emptySubtitle'),
@@ -96,30 +102,208 @@ function compareDates(a, b) {
   return a.localeCompare(b);
 }
 
-function getColorType() {
-  const checked = document.querySelector('input[name="colorType"]:checked');
-  return checked ? checked.value : 'Dark Color';
-}
-
-function setColorType(value) {
-  document.querySelectorAll('input[name="colorType"]').forEach((r) => {
-    r.checked = r.value === value;
-  });
-}
-
 function getDefaultPrice(colorType) {
   return PRICES[colorType] ?? PRICES['Dark Color'];
 }
 
-function updateTotalPriceFromColorType() {
-  els.totalPrice.value = getDefaultPrice(getColorType());
-  updateBalance();
+function normalizeRental(rental) {
+  if (rental.blazers && Array.isArray(rental.blazers) && rental.blazers.length > 0) {
+    return rental;
+  }
+
+  if (rental.blazerCode) {
+    const { blazerCode, colorName, colorType, ...rest } = rental;
+    return {
+      ...rest,
+      blazers: [{
+        blazerCode: blazerCode || '',
+        colorName: colorName || '',
+        colorType: colorType || 'Dark Color',
+      }],
+    };
+  }
+
+  return {
+    ...rental,
+    blazers: [{ blazerCode: '', colorName: '', colorType: 'Dark Color' }],
+  };
+}
+
+function normalizeRentals(items) {
+  return (items || []).map(normalizeRental);
+}
+
+function getBlazerCodes(rental) {
+  return (rental.blazers || []).map((b) => b.blazerCode).filter(Boolean);
+}
+
+function formatBlazerCodes(rental) {
+  const codes = getBlazerCodes(rental);
+  return codes.length ? codes.join(', ') : '—';
+}
+
+function sanitizeRentalForSave(rental) {
+  const { blazerCode, colorName, colorType, ...rest } = rental;
+  return {
+    ...rest,
+    blazers: (rest.blazers || []).map(({ _rowId, ...blazer }) => blazer),
+  };
+}
+
+function createBlazerRow(data = {}) {
+  const rowId = data._rowId || `blazer-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const colorType = data.colorType || 'Dark Color';
+  const row = document.createElement('div');
+  row.className = 'blazer-row grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50/80';
+  row.dataset.rowId = rowId;
+  row.innerHTML = `
+    <div class="sm:col-span-3">
+      <label class="block text-xs font-medium text-slate-600 mb-1">${escapeHtml(t('labelBlazerCode'))}</label>
+      <input type="text" data-field="blazerCode" required
+        class="blazer-code w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+        placeholder="${escapeHtml(t('placeholderBlazerCode'))}" value="${escapeHtml(data.blazerCode || '')}" />
+    </div>
+    <div class="sm:col-span-3">
+      <label class="block text-xs font-medium text-slate-600 mb-1">${escapeHtml(t('labelColorName'))}</label>
+      <input type="text" data-field="colorName" required
+        class="blazer-color w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+        placeholder="${escapeHtml(t('placeholderColorName'))}" value="${escapeHtml(data.colorName || '')}" />
+    </div>
+    <div class="sm:col-span-5">
+      <span class="block text-xs font-medium text-slate-600 mb-1">${escapeHtml(t('labelColorType'))}</span>
+      <div class="flex flex-col xs:flex-row gap-2 sm:gap-3">
+        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+          <input type="radio" name="colorType-${rowId}" data-field="colorType" value="Light Color" class="blazer-color-type shrink-0" ${colorType === 'Light Color' ? 'checked' : ''} />
+          <span class="text-xs sm:text-sm">${escapeHtml(t('colorLight'))} <span class="text-slate-400">(Rs. 2000)</span></span>
+        </label>
+        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+          <input type="radio" name="colorType-${rowId}" data-field="colorType" value="Dark Color" class="blazer-color-type shrink-0" ${colorType === 'Dark Color' ? 'checked' : ''} />
+          <span class="text-xs sm:text-sm">${escapeHtml(t('colorDark'))} <span class="text-slate-400">(Rs. 1750)</span></span>
+        </label>
+      </div>
+    </div>
+    <div class="sm:col-span-1 flex items-end justify-end sm:justify-center pb-0.5">
+      <button type="button" data-action="remove-blazer"
+        class="remove-blazer-btn p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors"
+        title="${escapeHtml(t('btnRemoveBlazer'))}" aria-label="${escapeHtml(t('btnRemoveBlazer'))}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      </button>
+    </div>
+  `;
+
+  row.querySelectorAll('.blazer-color-type').forEach((input) => {
+    input.addEventListener('change', updateTotalPriceFromBlazers);
+    input.addEventListener('click', updateTotalPriceFromBlazers);
+  });
+
+  row.querySelector('[data-action="remove-blazer"]')?.addEventListener('click', () => {
+    if (els.blazersList.children.length <= 1) return;
+    row.remove();
+    updateRemoveButtons();
+    updateTotalPriceFromBlazers();
+  });
+
+  return row;
+}
+
+function renderBlazerRows(blazers) {
+  els.blazersList.innerHTML = '';
+  const items = blazers?.length ? blazers : [{ blazerCode: '', colorName: '', colorType: 'Dark Color' }];
+  items.forEach((blazer) => {
+    els.blazersList.appendChild(createBlazerRow(blazer));
+  });
+  updateRemoveButtons();
+}
+
+function updateRemoveButtons() {
+  const rows = els.blazersList.querySelectorAll('.blazer-row');
+  const hideRemove = rows.length <= 1;
+  rows.forEach((row) => {
+    const btn = row.querySelector('.remove-blazer-btn');
+    if (btn) btn.hidden = hideRemove;
+  });
+}
+
+function getBlazersFromForm() {
+  return Array.from(els.blazersList.querySelectorAll('.blazer-row')).map((row) => {
+    const colorTypeInput = row.querySelector('.blazer-color-type:checked');
+    return {
+      _rowId: row.dataset.rowId,
+      blazerCode: row.querySelector('.blazer-code')?.value.trim() || '',
+      colorName: row.querySelector('.blazer-color')?.value.trim() || '',
+      colorType: colorTypeInput?.value || 'Dark Color',
+    };
+  });
+}
+
+function getBalanceDue(total, advance) {
+  return Math.max(0, (total || 0) - (advance || 0));
+}
+
+function getRentalBalance(rental) {
+  return getBalanceDue(rental.totalPrice, rental.advancePaid);
+}
+
+function getPaymentType() {
+  const checked = document.querySelector('input[name="paymentType"]:checked');
+  return checked?.value === 'advance' ? 'advance' : 'full';
+}
+
+function setPaymentType(type) {
+  document.querySelectorAll('input[name="paymentType"]').forEach((radio) => {
+    radio.checked = radio.value === type;
+  });
+  updatePaymentUI();
+}
+
+function getPaymentAmounts() {
+  const total = parseFloat(els.totalPrice.value) || 0;
+  if (getPaymentType() === 'full') {
+    return { totalPrice: total, advancePaid: total, balanceDue: 0 };
+  }
+  const advance = Math.min(Math.max(0, parseFloat(els.advancePaid.value) || 0), total);
+  return { totalPrice: total, advancePaid: advance, balanceDue: getBalanceDue(total, advance) };
+}
+
+function updatePaymentUI() {
+  if (!els.balanceSummary) return;
+
+  const total = parseFloat(els.totalPrice.value) || 0;
+  const isAdvance = getPaymentType() === 'advance';
+
+  if (els.advanceFieldWrap) {
+    els.advanceFieldWrap.hidden = !isAdvance;
+  }
+
+  if (!isAdvance) {
+    els.advancePaid.value = total;
+  }
+
+  const { advancePaid, balanceDue } = getPaymentAmounts();
+
+  if (!isAdvance || balanceDue === 0) {
+    els.balanceSummary.innerHTML = `
+      <p class="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">${escapeHtml(t('labelPaymentStatus'))}</p>
+      <p class="text-sm font-semibold text-emerald-700">${escapeHtml(t('paymentAllPaid'))}</p>
+    `;
+    return;
+  }
+
+  els.balanceSummary.innerHTML = `
+    <p class="text-[10px] uppercase tracking-wide text-amber-600 font-semibold">${escapeHtml(t('labelBalanceOnPickup'))}</p>
+    <p class="text-sm font-bold text-amber-800">${escapeHtml(formatCurrency(balanceDue))}</p>
+    <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(t('paymentPaidSoFar', { amount: formatCurrency(advancePaid) }))}</p>
+  `;
+}
+
+function updateTotalPriceFromBlazers() {
+  const total = getBlazersFromForm().reduce((sum, b) => sum + getDefaultPrice(b.colorType), 0);
+  els.totalPrice.value = total;
+  updatePaymentUI();
 }
 
 function updateBalance() {
-  const total = parseFloat(els.totalPrice.value) || 0;
-  const advance = parseFloat(els.advancePaid.value) || 0;
-  els.balanceDue.value = Math.max(0, total - advance);
+  updatePaymentUI();
 }
 
 function autoSetReturnDate() {
@@ -188,9 +372,9 @@ function resetForm() {
   returnDateManuallyEdited = false;
   els.bookingDate.value = todayISO();
   els.returnDate.value = '';
-  els.advancePaid.value = 0;
-  setColorType('Dark Color');
-  updateTotalPriceFromColorType();
+  setPaymentType('full');
+  renderBlazerRows([{ blazerCode: '', colorName: '', colorType: 'Dark Color' }]);
+  updateTotalPriceFromBlazers();
   els.cancelEditBtn.hidden = true;
   updateFormLabels();
   setSubmitButtonLoading(false);
@@ -204,7 +388,7 @@ function updateFormLabels() {
       els.formTitle.textContent = t('formEditTitle');
       els.formSubtitle.textContent = t('formEditSubtitle', {
         name: rental.customerName,
-        code: rental.blazerCode,
+        code: formatBlazerCodes(rental),
       });
       els.submitBtn.textContent = t('btnUpdateBooking');
       return;
@@ -216,39 +400,45 @@ function updateFormLabels() {
 }
 
 function getFormData() {
+  const payment = getPaymentAmounts();
   return {
     customerName: els.customerName.value.trim(),
     phoneNumber: els.phoneNumber.value.trim(),
-    blazerCode: els.blazerCode.value.trim(),
-    colorName: els.colorName.value.trim(),
-    colorType: getColorType(),
+    blazers: getBlazersFromForm(),
     bookingDate: els.bookingDate.value,
     pickupDate: els.pickupDate.value,
     returnDate: els.returnDate.value,
-    totalPrice: parseFloat(els.totalPrice.value) || 0,
-    advancePaid: parseFloat(els.advancePaid.value) || 0,
-    balanceDue: parseFloat(els.balanceDue.value) || 0,
+    totalPrice: payment.totalPrice,
+    advancePaid: payment.advancePaid,
+    balanceDue: payment.balanceDue,
     depositType: els.depositType.value,
     status: els.status.value,
+    notes: els.notes.value.trim(),
   };
 }
 
 function populateForm(rental) {
-  els.editId.value = rental.id;
-  els.customerName.value = rental.customerName;
-  els.phoneNumber.value = rental.phoneNumber;
-  els.blazerCode.value = rental.blazerCode || '';
-  els.colorName.value = rental.colorName;
-  setColorType(rental.colorType);
-  els.bookingDate.value = rental.bookingDate;
-  els.pickupDate.value = rental.pickupDate;
+  const normalized = normalizeRental(rental);
+  els.editId.value = normalized.id;
+  els.customerName.value = normalized.customerName;
+  els.phoneNumber.value = normalized.phoneNumber;
+  renderBlazerRows(normalized.blazers);
+  els.bookingDate.value = normalized.bookingDate;
+  els.pickupDate.value = normalized.pickupDate;
   returnDateManuallyEdited = true;
-  els.returnDate.value = rental.returnDate;
-  els.totalPrice.value = rental.totalPrice;
-  els.advancePaid.value = rental.advancePaid;
-  els.balanceDue.value = rental.balanceDue;
-  els.depositType.value = rental.depositType;
-  els.status.value = rental.status;
+  els.returnDate.value = normalized.returnDate;
+  els.totalPrice.value = normalized.totalPrice;
+  const balance = getRentalBalance(normalized);
+  if (balance > 0 && normalized.advancePaid < normalized.totalPrice) {
+    setPaymentType('advance');
+    els.advancePaid.value = normalized.advancePaid;
+  } else {
+    setPaymentType('full');
+  }
+  updatePaymentUI();
+  els.depositType.value = normalized.depositType;
+  els.status.value = normalized.status;
+  els.notes.value = normalized.notes || '';
   els.cancelEditBtn.hidden = false;
   updateFormLabels();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -257,12 +447,14 @@ function populateForm(rental) {
 function matchesSearch(rental, query) {
   if (!query) return true;
   const q = query.toLowerCase();
-  const blazerCodeText = String(rental.blazerCode || '').toLowerCase();
+  const blazerCodes = getBlazerCodes(rental).join(' ').toLowerCase();
+  const colorNames = (rental.blazers || []).map((b) => b.colorName).join(' ').toLowerCase();
   return (
     rental.customerName.toLowerCase().includes(q) ||
     rental.phoneNumber.toLowerCase().includes(q) ||
-    blazerCodeText.includes(q) ||
-    rental.colorName.toLowerCase().includes(q)
+    blazerCodes.includes(q) ||
+    colorNames.includes(q) ||
+    (rental.notes || '').toLowerCase().includes(q)
   );
 }
 
@@ -311,13 +503,29 @@ function clearFilters() {
   renderTable();
 }
 
+function renderPaymentCell(rental) {
+  const balance = getRentalBalance(rental);
+  if (balance <= 0) {
+    return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">${escapeHtml(t('paymentAllPaid'))}</span>`;
+  }
+  return `
+    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">${escapeHtml(formatCurrency(balance))} ${escapeHtml(t('paymentDueShort'))}</span>
+    <span class="block text-xs text-slate-500 mt-0.5">${escapeHtml(t('paymentPaidSoFar', { amount: formatCurrency(rental.advancePaid || 0) }))}</span>
+  `;
+}
+
 function renderActionButtons(rental, compact = false) {
   const btnClass = compact
     ? 'flex-1 min-w-[3.7rem] px-1.5 py-1.5 sm:py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap'
     : 'px-1.5 py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap';
+  const balance = getRentalBalance(rental);
 
   return `
     <div class="flex flex-wrap items-center justify-end gap-1 ${compact ? 'rental-card-actions w-full' : 'table-action-group'}">
+      ${rental.status === 'Pending' && balance > 0
+        ? `<button type="button" data-action="collect-balance" data-id="${rental.id}"
+            class="${btnClass} bg-amber-500 text-white hover:bg-amber-600">${escapeHtml(t('btnCollectBalance'))}</button>`
+        : ''}
       ${rental.status === 'Pending'
         ? `<button type="button" data-action="return" data-id="${rental.id}"
             class="${btnClass} bg-green-600 text-white hover:bg-green-700">${escapeHtml(t('btnReturned'))}</button>`
@@ -343,6 +551,172 @@ function getCardClass(rental) {
   return 'rental-card rental-card-default';
 }
 
+function renderBlazerCodesCell(rental) {
+  const codes = getBlazerCodes(rental);
+  if (codes.length <= 1) {
+    return `<span class="font-mono font-semibold">${escapeHtml(codes[0] || '—')}</span>`;
+  }
+  return codes.map((code) =>
+    `<span class="inline-block font-mono font-semibold bg-slate-100 rounded px-1.5 py-0.5 mr-1 mb-0.5 text-xs">${escapeHtml(code)}</span>`
+  ).join('');
+}
+
+function renderBlazerColorsCell(rental) {
+  const blazers = rental.blazers || [];
+  if (!blazers.length) return '—';
+  return blazers.map((b) => `
+    <span class="block">
+      <span>${escapeHtml(b.colorName || '—')}</span>
+      <span class="text-xs opacity-70">${escapeHtml(translateColorType(b.colorType))}</span>
+    </span>
+  `).join('');
+}
+
+function renderNotesCell(notes, maxLength = 28) {
+  if (!notes) return '<span class="text-slate-400">—</span>';
+  const truncated = notes.length > maxLength ? `${notes.slice(0, maxLength)}…` : notes;
+  return `<span class="text-xs text-slate-600 line-clamp-2" title="${escapeHtml(notes)}">${escapeHtml(truncated)}</span>`;
+}
+
+function getPhoneLink(phone) {
+  const digits = String(phone || '').replace(/[^\d+]/g, '');
+  return digits ? `tel:${digits}` : '#';
+}
+
+function renderPhoneLink(phone) {
+  const safePhone = escapeHtml(phone || '—');
+  const telHref = getPhoneLink(phone);
+  if (!phone) return '<span class="text-slate-400">—</span>';
+  return `<a href="${telHref}" class="phone-call-link" aria-label="Call ${safePhone}">${safePhone}</a>`;
+}
+
+function renderDetailsButton(rentalId, compact = false) {
+  const btnClass = compact
+    ? 'w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors'
+    : 'inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-brand-50 hover:border-brand-300 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors whitespace-nowrap';
+  return `
+    <button type="button" data-action="view-details" data-id="${rentalId}" class="${btnClass}" title="${escapeHtml(t('btnViewDetails'))}">
+      <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+      <span>${escapeHtml(t('btnViewDetails'))}</span>
+    </button>`;
+}
+
+function renderDetailModalBlazers(rental) {
+  const blazers = rental.blazers || [];
+  if (!blazers.length) return `<p class="text-sm text-slate-500">${escapeHtml(t('emptyBlazers'))}</p>`;
+  return blazers.map((blazer, index) => `
+    <div class="detail-blazer-item">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">${escapeHtml(t('detailBlazerNumber', { number: index + 1 }))}</span>
+        <span class="font-mono text-sm font-bold text-slate-900">${escapeHtml(blazer.blazerCode || '—')}</span>
+      </div>
+      <p class="text-sm text-slate-700">${escapeHtml(blazer.colorName || '—')}</p>
+      <p class="text-xs text-slate-500">${escapeHtml(translateColorType(blazer.colorType))} · ${escapeHtml(formatCurrency(getDefaultPrice(blazer.colorType)))}</p>
+    </div>
+  `).join('');
+}
+
+function renderDetailModalContent(rental) {
+  const balance = getRentalBalance(rental);
+  return `
+    <div class="detail-modal-section">
+      <div class="flex flex-wrap items-center gap-2 mb-4">
+        ${renderStatusBadge(rental)}
+        ${renderPaymentCell(rental)}
+      </div>
+      <dl class="detail-grid">
+        <div class="detail-field">
+          <dt>${escapeHtml(t('labelPhoneNumber'))}</dt>
+          <dd>${renderPhoneLink(rental.phoneNumber)}</dd>
+        </div>
+        <div class="detail-field">
+          <dt>${escapeHtml(t('labelBookingDate'))}</dt>
+          <dd>${formatDate(rental.bookingDate)}</dd>
+        </div>
+        <div class="detail-field">
+          <dt>${escapeHtml(t('labelPickupDate'))}</dt>
+          <dd>${formatDate(rental.pickupDate)}</dd>
+        </div>
+        <div class="detail-field">
+          <dt>${escapeHtml(t('labelReturnDate'))}</dt>
+          <dd class="font-semibold">${formatDate(rental.returnDate)}</dd>
+        </div>
+        <div class="detail-field">
+          <dt>${escapeHtml(t('labelDepositType'))}</dt>
+          <dd>${escapeHtml(translateDeposit(rental.depositType))}</dd>
+        </div>
+        <div class="detail-field">
+          <dt>${escapeHtml(t('labelStatus'))}</dt>
+          <dd>${escapeHtml(translateStatus(rental.status))}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="detail-modal-section">
+      <h3 class="detail-section-title">${escapeHtml(t('labelBlazers'))}</h3>
+      <div class="detail-blazer-list">${renderDetailModalBlazers(rental)}</div>
+    </div>
+
+    <div class="detail-modal-section">
+      <h3 class="detail-section-title">${escapeHtml(t('labelPayment'))}</h3>
+      <dl class="detail-grid">
+        <div class="detail-field">
+          <dt>${escapeHtml(t('labelTotalPrice'))}</dt>
+          <dd class="font-semibold">${formatCurrency(rental.totalPrice)}</dd>
+        </div>
+        <div class="detail-field">
+          <dt>${escapeHtml(t('labelPaidNow'))}</dt>
+          <dd>${formatCurrency(rental.advancePaid || 0)}</dd>
+        </div>
+        <div class="detail-field">
+          <dt>${escapeHtml(t('labelBalanceDue'))}</dt>
+          <dd class="${balance > 0 ? 'text-amber-700 font-bold' : 'text-emerald-700 font-semibold'}">${balance > 0 ? formatCurrency(balance) : escapeHtml(t('paymentAllPaid'))}</dd>
+        </div>
+      </dl>
+    </div>
+
+    ${rental.notes ? `
+    <div class="detail-modal-section">
+      <h3 class="detail-section-title">${escapeHtml(t('labelNotes'))}</h3>
+      <p class="detail-notes">${escapeHtml(rental.notes)}</p>
+    </div>` : ''}
+  `;
+}
+
+function openDetailModal(rentalId) {
+  const rental = rentals.find((r) => r.id === rentalId);
+  if (!rental || !els.detailModal) return;
+
+  activeDetailRentalId = rentalId;
+  els.detailModalTitle.textContent = rental.customerName;
+  els.detailModalBody.innerHTML = renderDetailModalContent(rental);
+  els.detailModalActions.innerHTML = renderActionButtons(rental, true);
+
+  els.detailModal.classList.remove('hidden');
+  els.detailModal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+}
+
+function closeDetailModal() {
+  if (!els.detailModal) return;
+  activeDetailRentalId = null;
+  els.detailModal.classList.add('hidden');
+  els.detailModal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('modal-open');
+}
+
+function refreshDetailModalIfOpen() {
+  if (!activeDetailRentalId) return;
+  const rental = rentals.find((r) => r.id === activeDetailRentalId);
+  if (!rental) {
+    closeDetailModal();
+    return;
+  }
+  els.detailModalTitle.textContent = rental.customerName;
+  els.detailModalBody.innerHTML = renderDetailModalContent(rental);
+  els.detailModalActions.innerHTML = renderActionButtons(rental, true);
+}
+
 function renderRentalCard(rental) {
   const card = document.createElement('article');
   card.className = getCardClass(rental);
@@ -350,51 +724,44 @@ function renderRentalCard(rental) {
     <div class="flex items-start justify-between gap-2 mb-3">
       <div class="min-w-0 flex-1">
         <h3 class="font-semibold text-slate-900 truncate">${escapeHtml(rental.customerName)}</h3>
-        <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(rental.phoneNumber)}</p>
+        <p class="text-xs text-slate-500 mt-0.5">${renderPhoneLink(rental.phoneNumber)}</p>
       </div>
       <div class="shrink-0">${renderStatusBadge(rental)}</div>
     </div>
     <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-xs sm:text-sm mb-3">
       <div>
-        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thCode'))}</dt>
-        <dd class="font-mono font-semibold">${escapeHtml(rental.blazerCode)}</dd>
-      </div>
-      <div>
         <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thBooking'))}</dt>
         <dd>${formatDate(rental.bookingDate)}</dd>
       </div>
+      <div>
+        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thCode'))}</dt>
+        <dd class="font-mono font-semibold">${renderBlazerCodesCell(rental)}</dd>
+      </div>
       <div class="col-span-2">
         <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thColor'))}</dt>
-        <dd>${escapeHtml(rental.colorName)} <span class="text-slate-400">· ${escapeHtml(translateColorType(rental.colorType))}</span></dd>
-      </div>
-      <div>
-        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thPickup'))}</dt>
-        <dd>${formatDate(rental.pickupDate)}</dd>
-      </div>
-      <div>
-        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thReturn'))}</dt>
-        <dd class="font-medium">${formatDate(rental.returnDate)}</dd>
+        <dd>${renderBlazerColorsCell(rental)}</dd>
       </div>
       <div>
         <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thPrice'))}</dt>
         <dd>${formatCurrency(rental.totalPrice)}</dd>
       </div>
       <div>
-        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thBalance'))}</dt>
-        <dd class="font-semibold">${formatCurrency(rental.balanceDue)}</dd>
+        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thPayment'))}</dt>
+        <dd>${renderPaymentCell(rental)}</dd>
       </div>
+      ${rental.notes ? `
       <div class="col-span-2">
-        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thDeposit'))}</dt>
-        <dd>${escapeHtml(translateDeposit(rental.depositType))}</dd>
-      </div>
+        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thNotes'))}</dt>
+        <dd class="text-slate-600">${renderNotesCell(rental.notes, 60)}</dd>
+      </div>` : ''}
     </dl>
-    ${renderActionButtons(rental, true)}
+    ${renderDetailsButton(rental.id, true)}
   `;
   return card;
 }
 
 function setRentalsViewVisible(show) {
-  [els.rentalsCards, els.tableScroll, els.tableScrollHint, els.mobileCardsHint].forEach((el) => {
+  [els.rentalsCards, els.tableScroll, els.mobileCardsHint].forEach((el) => {
     if (el) el.classList.toggle('empty-hidden', !show);
   });
 }
@@ -440,21 +807,14 @@ function renderTable() {
     tr.className = getRowClass(rental);
     tr.innerHTML = `
       <td class="px-3 py-3 whitespace-nowrap">${formatDate(rental.bookingDate)}</td>
-      <td class="px-3 py-3 whitespace-nowrap font-medium">${escapeHtml(rental.customerName)}</td>
-      <td class="px-3 py-3 whitespace-nowrap">${escapeHtml(rental.phoneNumber)}</td>
-      <td class="px-3 py-3 whitespace-nowrap font-mono font-semibold">${escapeHtml(rental.blazerCode)}</td>
-      <td class="px-3 py-3 whitespace-nowrap">
-        <span>${escapeHtml(rental.colorName)}</span>
-        <span class="block text-xs opacity-70">${escapeHtml(translateColorType(rental.colorType))}</span>
-      </td>
-      <td class="px-3 py-3 whitespace-nowrap">${formatDate(rental.pickupDate)}</td>
-      <td class="px-3 py-3 whitespace-nowrap font-medium">${formatDate(rental.returnDate)}</td>
-      <td class="px-3 py-3 whitespace-nowrap">${formatCurrency(rental.totalPrice)}</td>
-      <td class="px-3 py-3 whitespace-nowrap">${formatCurrency(rental.advancePaid)}</td>
-      <td class="px-3 py-3 whitespace-nowrap font-semibold">${formatCurrency(rental.balanceDue)}</td>
-      <td class="px-3 py-3 whitespace-nowrap text-xs">${escapeHtml(translateDeposit(rental.depositType))}</td>
-      <td class="px-3 py-3 whitespace-nowrap">${renderStatusBadge(rental)}</td>
-      <td class="px-2 py-3 whitespace-nowrap text-right">${renderActionButtons(rental)}</td>
+      <td class="px-3 py-3 whitespace-nowrap font-medium max-w-[8rem] truncate" title="${escapeHtml(rental.customerName)}">${escapeHtml(rental.customerName)}</td>
+      <td class="px-3 py-3 whitespace-nowrap">${renderPhoneLink(rental.phoneNumber)}</td>
+      <td class="px-3 py-3 whitespace-nowrap">${renderBlazerCodesCell(rental)}</td>
+      <td class="px-3 py-3">${renderBlazerColorsCell(rental)}</td>
+      <td class="px-3 py-3 whitespace-nowrap font-medium">${formatCurrency(rental.totalPrice)}</td>
+      <td class="px-3 py-3 whitespace-nowrap">${renderPaymentCell(rental)}</td>
+      <td class="px-3 py-3 max-w-[10rem]">${renderNotesCell(rental.notes)}</td>
+      <td class="px-2 py-3 whitespace-nowrap text-right">${renderDetailsButton(rental.id)}</td>
     `;
     els.tableBody.appendChild(tr);
   });
@@ -493,6 +853,13 @@ function showToast(message, type = 'success') {
   const container = document.getElementById('toastContainer');
   if (!container || !message) return;
 
+  const currentToast = container.querySelector('.toast-item');
+  if (currentToast) {
+    clearTimeout(Number(currentToast.dataset.timeoutId || 0));
+    currentToast.classList.add('opacity-0', 'translate-y-1', 'transition', 'duration-200');
+    setTimeout(() => currentToast.remove(), 200);
+  }
+
   const toast = document.createElement('div');
   const tone = {
     success: 'bg-emerald-600 text-white border-emerald-500',
@@ -500,18 +867,21 @@ function showToast(message, type = 'success') {
     info: 'bg-brand-600 text-white border-brand-500',
   };
 
-  toast.className = `pointer-events-auto w-full rounded-lg border px-3 py-2 text-xs font-medium shadow-lg text-white sm:text-sm ${tone[type] || tone.info}`;
+  toast.className = `toast-item pointer-events-auto w-full rounded-lg border px-3 py-2 text-xs font-medium shadow-lg text-white sm:text-sm ${tone[type] || tone.info}`;
   toast.textContent = message;
+  toast.dataset.toastMessage = message;
+  toast.dataset.toastType = type;
   container.appendChild(toast);
 
   requestAnimationFrame(() => {
     toast.classList.add('opacity-100');
   });
 
-  setTimeout(() => {
+  const timeoutId = setTimeout(() => {
     toast.classList.add('opacity-0', 'translate-y-1', 'transition', 'duration-200');
     setTimeout(() => toast.remove(), 200);
   }, 2200);
+  toast.dataset.timeoutId = String(timeoutId);
 }
 
 function notifyRemoteBookingChange(previousItems, nextItems) {
@@ -553,14 +923,32 @@ function handleSubmit(e) {
     return;
   }
 
+  if (!data.blazers.length || data.blazers.some((b) => !b.blazerCode || !b.colorName)) {
+    alert(t('alertBlazerRequired'));
+    return;
+  }
+
+  if (getPaymentType() === 'advance') {
+    const total = data.totalPrice;
+    const paid = data.advancePaid;
+    if (paid <= 0) {
+      alert(t('alertAdvanceRequired'));
+      return;
+    }
+    if (paid >= total) {
+      alert(t('alertAdvanceTooMuch'));
+      return;
+    }
+  }
+
   const editId = els.editId.value;
   if (editId) {
     const idx = rentals.findIndex((r) => r.id === editId);
     if (idx !== -1) {
-      rentals[idx] = { ...rentals[idx], ...data };
+      rentals[idx] = sanitizeRentalForSave({ ...rentals[idx], ...data });
     }
   } else {
-    rentals.push({ id: generateId(), ...data });
+    rentals.push(sanitizeRentalForSave({ id: generateId(), ...data }));
   }
 
   setSubmitButtonLoading(true);
@@ -581,27 +969,57 @@ function handleTableClick(e) {
   if (!btn) return;
 
   const { action, id } = btn.dataset;
+
+  if (action === 'close-modal') {
+    closeDetailModal();
+    return;
+  }
+
+  if (action === 'view-details') {
+    openDetailModal(id);
+    return;
+  }
+
   const rental = rentals.find((r) => r.id === id);
   if (!rental) return;
+
+  const afterAction = () => {
+    refreshDetailModalIfOpen();
+    render();
+  };
 
   if (action === 'return') {
     rental.status = 'Returned';
     saveRentals()
       .then(() => {
         showToast(t('toastBookingReturned'), 'success');
+        afterAction();
+      })
+      .catch(() => {
+        showToast(t('toastSyncError'), 'error');
+      });
+  } else if (action === 'collect-balance') {
+    rental.advancePaid = rental.totalPrice;
+    rental.balanceDue = 0;
+    saveRentals()
+      .then(() => {
+        showToast(t('toastBalanceCollected'), 'success');
+        afterAction();
       })
       .catch(() => {
         showToast(t('toastSyncError'), 'error');
       });
   } else if (action === 'edit') {
+    closeDetailModal();
     populateForm(rental);
   } else if (action === 'delete') {
-    if (confirm(t('confirmDelete', { name: rental.customerName, code: rental.blazerCode }))) {
+    if (confirm(t('confirmDelete', { name: rental.customerName, code: formatBlazerCodes(rental) }))) {
       rentals = rentals.filter((r) => r.id !== id);
       saveRentals()
         .then(() => {
           showToast(t('toastBookingDeleted'), 'success');
           if (els.editId.value === id) resetForm();
+          closeDetailModal();
         })
         .catch(() => {
           showToast(t('toastSyncError'), 'error');
@@ -615,18 +1033,41 @@ function initEventListeners() {
   els.cancelEditBtn.addEventListener('click', resetForm);
   els.tableBody.addEventListener('click', handleTableClick);
   els.rentalsCards.addEventListener('click', handleTableClick);
+  els.detailModal?.addEventListener('click', handleTableClick);
+  els.detailModalActions?.addEventListener('click', handleTableClick);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && activeDetailRentalId) {
+      closeDetailModal();
+    }
+  });
+
   els.searchInput.addEventListener('input', renderTable);
   els.dateFilterField.addEventListener('change', renderTable);
   els.dateFrom.addEventListener('change', renderTable);
   els.dateTo.addEventListener('change', renderTable);
   els.clearFiltersBtn.addEventListener('click', clearFilters);
 
-  document.querySelectorAll('input[name="colorType"]').forEach((r) => {
-    r.addEventListener('change', updateTotalPriceFromColorType);
+  els.addBlazerBtn?.addEventListener('click', () => {
+    els.blazersList.appendChild(createBlazerRow({ colorType: 'Dark Color' }));
+    updateRemoveButtons();
+    updateTotalPriceFromBlazers();
   });
 
-  els.totalPrice.addEventListener('input', updateBalance);
-  els.advancePaid.addEventListener('input', updateBalance);
+  document.querySelectorAll('input[name="paymentType"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      if (getPaymentType() === 'advance') {
+        const total = parseFloat(els.totalPrice.value) || 0;
+        const current = parseFloat(els.advancePaid.value) || 0;
+        if (current >= total) {
+          els.advancePaid.value = '';
+        }
+      }
+      updatePaymentUI();
+    });
+  });
+
+  els.advancePaid.addEventListener('input', updatePaymentUI);
 
   const handlePickupDateChange = () => {
     returnDateManuallyEdited = false;
@@ -666,7 +1107,7 @@ async function init() {
   subscribeRentals(
     (items) => {
       const previousItems = [...rentals];
-      rentals = items;
+      rentals = normalizeRentals(items);
 
       if (hasLoadedCloudData) {
         notifyRemoteBookingChange(previousItems, items);
@@ -675,6 +1116,7 @@ async function init() {
       hasLoadedCloudData = true;
       hideAppLoading();
       setSyncState('saved');
+      refreshDetailModalIfOpen();
       render();
     },
     (error) => {
@@ -688,6 +1130,11 @@ async function init() {
   );
 
   window.addEventListener('localechange', () => {
+    const currentBlazers = getBlazersFromForm();
+    if (els.blazersList?.children.length > 0) {
+      renderBlazerRows(currentBlazers);
+    }
+    updatePaymentUI();
     updateFormLabels();
     setSyncState(syncState);
     render();
