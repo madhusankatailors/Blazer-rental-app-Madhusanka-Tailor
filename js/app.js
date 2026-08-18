@@ -271,7 +271,9 @@ function getRentalBalance(rental) {
 
 function getPaymentType() {
   const checked = document.querySelector('input[name="paymentType"]:checked');
-  return checked?.value === 'advance' ? 'advance' : 'full';
+  if (checked?.value === 'advance') return 'advance';
+  if (checked?.value === 'unpaid') return 'unpaid';
+  return 'full';
 }
 
 function setPaymentType(type) {
@@ -286,6 +288,9 @@ function getPaymentAmounts() {
   if (getPaymentType() === 'full') {
     return { totalPrice: total, advancePaid: total, balanceDue: 0 };
   }
+  if (getPaymentType() === 'unpaid') {
+    return { totalPrice: total, advancePaid: 0, balanceDue: total };
+  }
   const advance = Math.min(Math.max(0, parseFloat(els.advancePaid.value) || 0), total);
   return { totalPrice: total, advancePaid: advance, balanceDue: getBalanceDue(total, advance) };
 }
@@ -294,7 +299,9 @@ function updatePaymentUI() {
   if (!els.balanceSummary) return;
 
   const total = parseFloat(els.totalPrice.value) || 0;
-  const isAdvance = getPaymentType() === 'advance';
+  const paymentType = getPaymentType();
+  const isAdvance = paymentType === 'advance';
+  const isUnpaid = paymentType === 'unpaid';
 
   if (els.advanceFieldWrap) {
     els.advanceFieldWrap.hidden = !isAdvance;
@@ -304,12 +311,25 @@ function updatePaymentUI() {
     els.advancePaid.value = total;
   }
 
+  if (isUnpaid) {
+    els.advancePaid.value = 0;
+  }
+
   const { advancePaid, balanceDue } = getPaymentAmounts();
 
-  if (!isAdvance || balanceDue === 0) {
+  if (!isAdvance && !isUnpaid || balanceDue === 0) {
     els.balanceSummary.innerHTML = `
       <p class="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">${escapeHtml(t('labelPaymentStatus'))}</p>
       <p class="text-sm font-semibold text-emerald-700">${escapeHtml(t('paymentAllPaid'))}</p>
+    `;
+    return;
+  }
+
+  if (isUnpaid) {
+    els.balanceSummary.innerHTML = `
+      <p class="text-[10px] uppercase tracking-wide text-red-600 font-semibold">${escapeHtml(t('labelPaymentStatus'))}</p>
+      <p class="text-sm font-bold text-red-700">${escapeHtml(t('paymentNotPaid'))}</p>
+      <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(t('paymentDueOnReturn', { amount: formatCurrency(balanceDue) }))}</p>
     `;
     return;
   }
@@ -480,7 +500,7 @@ function populateForm(rental) {
   els.totalPrice.value = normalized.totalPrice;
   const balance = getRentalBalance(normalized);
   if (balance > 0 && normalized.advancePaid < normalized.totalPrice) {
-    setPaymentType('advance');
+    setPaymentType(normalized.advancePaid > 0 ? 'advance' : 'unpaid');
     els.advancePaid.value = normalized.advancePaid;
   } else {
     setPaymentType('full');
@@ -654,7 +674,7 @@ function renderActionButtons(rental, compact = false) {
     <div class="flex flex-wrap items-center justify-end gap-1 ${compact ? 'rental-card-actions w-full' : 'table-action-group'}">
       <button type="button" data-action="download-receipt" data-id="${rental.id}"
         class="${btnClass} bg-violet-600 text-white hover:bg-violet-700">${escapeHtml(t('btnDownloadReceipt'))}</button>
-      ${rental.status === 'Pending' && balance > 0
+      ${balance > 0
         ? `<button type="button" data-action="collect-balance" data-id="${rental.id}"
             class="${btnClass} bg-amber-500 text-white hover:bg-amber-600">${escapeHtml(t('btnCollectBalance'))}</button>`
         : ''}
@@ -1410,9 +1430,7 @@ function renderStats() {
   const todayGoingBlazers = rentals
     .filter(isGoingOutToday)
     .reduce((sum, rental) => sum + getBlazerCountForRental(rental), 0);
-  const outstandingBalance = rentals
-    .filter((rental) => rental.status === 'Pending')
-    .reduce((sum, rental) => sum + getRentalBalance(rental), 0);
+  const outstandingBalance = rentals.reduce((sum, rental) => sum + getRentalBalance(rental), 0);
 
   els.statTotal.textContent = total;
   els.statActive.textContent = active;

@@ -205,7 +205,7 @@
           <div class="sm:col-span-2 lg:col-span-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
             <span class="block text-sm font-medium text-slate-700 mb-3" data-i18n="labelPayment">Payment</span>
 
-            <div class="grid grid-cols-1 xs:grid-cols-2 gap-2 mb-4">
+            <div class="grid grid-cols-1 xs:grid-cols-3 gap-2 mb-4">
               <label class="payment-type-option">
                 <input type="radio" name="paymentType" value="full" checked class="sr-only" />
                 <span class="block text-sm font-semibold text-slate-800" data-i18n="paymentFull">Paid in Full</span>
@@ -215,6 +215,11 @@
                 <input type="radio" name="paymentType" value="advance" class="sr-only" />
                 <span class="block text-sm font-semibold text-slate-800" data-i18n="paymentAdvance">Advance Only</span>
                 <span class="block text-xs text-slate-500 mt-0.5" data-i18n="paymentAdvanceHint">Customer pays rest on pickup day</span>
+              </label>
+              <label class="payment-type-option">
+                <input type="radio" name="paymentType" value="unpaid" class="sr-only" />
+                <span class="block text-sm font-semibold text-slate-800" data-i18n="paymentUnpaid">Not Paid</span>
+                <span class="block text-xs text-slate-500 mt-0.5" data-i18n="paymentUnpaidHint">Pay when the blazer is returned</span>
               </label>
             </div>
 
