@@ -9,6 +9,8 @@ let hasLoadedCloudData = false;
 let syncState = 'loading';
 let previousSnapshot = [];
 let activeDetailRentalId = null;
+const ITEMS_PER_PAGE = 10;
+let currentPage = 1;
 
 const $ = (id) => document.getElementById(id);
 
@@ -54,9 +56,18 @@ const els = {
   statActive: $('statActive'),
   statOverdue: $('statOverdue'),
   statTodayReturns: $('statTodayReturns'),
+  statTodayGoingBlazers: $('statTodayGoingBlazers'),
+  analyticsDailySalesValue: $('analyticsDailySalesValue'),
+  analyticsMonthlyRevenueValue: $('analyticsMonthlyRevenueValue'),
+  analyticsTopColorsValue: $('analyticsTopColorsValue'),
+  analyticsOverdueRateValue: $('analyticsOverdueRateValue'),
   syncStatus: $('syncStatus'),
   appLoading: $('appLoading'),
   logoutBtn: $('logoutBtn'),
+  paginationControls: $('paginationControls'),
+  analyticsToggleBtn: $('analyticsToggleBtn'),
+  analyticsToggleIcon: $('analyticsToggleIcon'),
+  analyticsPanel: $('analyticsPanel'),
 };
 
 function todayISO() {
@@ -323,12 +334,33 @@ function isReturnDueToday(rental) {
   return rental.status === 'Pending' && rental.returnDate === todayISO();
 }
 
-function getRowStatus(rental) {
+function isPickupToday(rental) {
+  return rental.status === 'Pending' && rental.pickupDate === todayISO();
+}
+
+function isGoingOutToday(rental) {
+  return isPickupToday(rental);
+}
+
+function getRentalDisplayStatus(rental) {
   if (rental.status === 'Returned') return 'returned';
   if (isOverdue(rental)) return 'overdue';
-  if (isUpcoming(rental)) return 'upcoming';
+  if (isPickupToday(rental)) return 'going-today';
   if (isReturnDueToday(rental)) return 'due-today';
-  return 'active';
+  if (isUpcoming(rental)) return 'upcoming';
+  return 'pending';
+}
+
+function getBlazerCountForRental(rental) {
+  const blazers = Array.isArray(rental.blazers) ? rental.blazers : [];
+  if (blazers.length > 0) {
+    return blazers.filter((blazer) => blazer && (blazer.blazerCode || blazer.colorName || blazer.colorType)).length;
+  }
+  return rental.blazerCode ? 1 : 0;
+}
+
+function getRowStatus(rental) {
+  return getRentalDisplayStatus(rental);
 }
 
 function setSyncState(state) {
@@ -483,6 +515,51 @@ function getFilteredRentals() {
     .sort((a, b) => b.bookingDate.localeCompare(a.bookingDate) || b.id.localeCompare(a.id));
 }
 
+function getPaginatedRentals(filtered) {
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  return {
+    page: currentPage,
+    totalPages,
+    items: filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE),
+  };
+}
+
+function renderPagination(filteredLength) {
+  if (!els.paginationControls) return;
+
+  if (filteredLength === 0) {
+    els.paginationControls.classList.add('hidden');
+    els.paginationControls.innerHTML = '';
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filteredLength / ITEMS_PER_PAGE));
+  const startItem = filteredLength === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endItem = Math.min(currentPage * ITEMS_PER_PAGE, filteredLength);
+
+  els.paginationControls.classList.remove('hidden');
+  els.paginationControls.innerHTML = `
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <p class="text-xs sm:text-sm text-slate-600">Showing ${startItem}-${endItem} of ${filteredLength}</p>
+      <div class="flex items-center gap-2">
+        <button type="button" data-page-action="prev" ${currentPage <= 1 ? 'disabled' : ''}
+          class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${currentPage <= 1 ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}">
+          Previous
+        </button>
+        <span class="min-w-[4.5rem] text-center text-xs sm:text-sm font-medium text-slate-600">Page ${currentPage}/${totalPages}</span>
+        <button type="button" data-page-action="next" ${currentPage >= totalPages ? 'disabled' : ''}
+          class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${currentPage >= totalPages ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}">
+          Next
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function updateEmptyState(hasRentals, hasResults) {
   if (hasResults) return;
 
@@ -522,6 +599,10 @@ function renderActionButtons(rental, compact = false) {
 
   return `
     <div class="flex flex-wrap items-center justify-end gap-1 ${compact ? 'rental-card-actions w-full' : 'table-action-group'}">
+      <button type="button" data-action="print-receipt" data-id="${rental.id}"
+        class="${btnClass} bg-violet-600 text-white hover:bg-violet-700">${escapeHtml(t('btnPrintReceipt'))}</button>
+      <button type="button" data-action="download-receipt" data-id="${rental.id}"
+        class="${btnClass} bg-slate-700 text-white hover:bg-slate-800">${escapeHtml(t('btnDownloadReceipt'))}</button>
       ${rental.status === 'Pending' && balance > 0
         ? `<button type="button" data-action="collect-balance" data-id="${rental.id}"
             class="${btnClass} bg-amber-500 text-white hover:bg-amber-600">${escapeHtml(t('btnCollectBalance'))}</button>`
@@ -616,6 +697,124 @@ function renderDetailModalBlazers(rental) {
   `).join('');
 }
 
+function buildReceiptHtml(rental) {
+  const blazers = Array.isArray(rental.blazers) && rental.blazers.length ? rental.blazers : [{ blazerCode: rental.blazerCode || '—', colorName: rental.colorName || '—', colorType: rental.colorType || 'Dark Color' }];
+  const rows = blazers.map((blazer) => `
+    <tr>
+      <td>${escapeHtml(blazer.blazerCode || '—')}</td>
+      <td>${escapeHtml(blazer.colorName || '—')}</td>
+      <td>${escapeHtml(translateColorType(blazer.colorType || 'Dark Color'))}</td>
+      <td>${escapeHtml(formatCurrency(getDefaultPrice(blazer.colorType || 'Dark Color')))}</td>
+    </tr>
+  `).join('');
+
+  return `<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <title>Madhusanka Tailors Rental Receipt</title>
+      <style>
+        body { font-family: Arial, sans-serif; color: #0f172a; margin: 32px; }
+        .receipt { max-width: 760px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 14px; padding: 28px; }
+        .header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 20px; }
+        .brand { font-size: 24px; font-weight: 700; }
+        .label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 12px 22px; margin: 18px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px 12px; text-align: left; font-size: 14px; }
+        th { background: #f8fafc; }
+        .totals { margin-top: 18px; display: flex; justify-content: flex-end; }
+        .totals-box { width: 260px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; }
+        .row { display: flex; justify-content: space-between; margin-top: 8px; }
+        .notes { margin-top: 18px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+        @media print { body { margin: 0; } .receipt { border: none; box-shadow: none; } }
+      </style>
+    </head>
+    <body>
+      <div class="receipt">
+        <div class="header">
+          <div>
+            <div class="brand">Madhusanka Tailors</div>
+            <div class="label">Rental Receipt</div>
+          </div>
+          <div style="text-align: right;">
+            <div class="label">Receipt No.</div>
+            <div>${escapeHtml(rental.id || '—')}</div>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div><div class="label">Customer</div><div>${escapeHtml(rental.customerName || '—')}</div></div>
+          <div><div class="label">Phone</div><div>${escapeHtml(rental.phoneNumber || '—')}</div></div>
+          <div><div class="label">Booking Date</div><div>${formatDate(rental.bookingDate)}</div></div>
+          <div><div class="label">Pickup Date</div><div>${formatDate(rental.pickupDate)}</div></div>
+          <div><div class="label">Return Date</div><div>${formatDate(rental.returnDate)}</div></div>
+          <div><div class="label">Status</div><div>${escapeHtml(getDisplayStatusText(rental))}</div></div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Blazer Code</th>
+              <th>Color</th>
+              <th>Type</th>
+              <th>Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div class="totals-box">
+            <div class="row"><span>Total</span><strong>${formatCurrency(rental.totalPrice || 0)}</strong></div>
+            <div class="row"><span>Paid Now</span><strong>${formatCurrency(rental.advancePaid || 0)}</strong></div>
+            <div class="row"><span>Balance</span><strong>${formatCurrency(getRentalBalance(rental))}</strong></div>
+          </div>
+        </div>
+
+        ${rental.notes ? `<div class="notes"><div class="label">Notes</div><div>${escapeHtml(rental.notes)}</div></div>` : ''}
+      </div>
+    </body>
+    </html>`;
+}
+
+function printRentalReceipt(rental) {
+  const receiptWindow = window.open('', '_blank', 'width=900,height=1000');
+  if (!receiptWindow) {
+    showToast(t('toastReceiptBlocked'), 'error');
+    return;
+  }
+
+  const html = buildReceiptHtml(rental);
+  receiptWindow.document.open();
+  receiptWindow.document.write(html);
+  receiptWindow.document.close();
+  setTimeout(() => {
+    receiptWindow.focus();
+    receiptWindow.print();
+  }, 300);
+}
+
+function downloadRentalReceipt(rental) {
+  const html = buildReceiptHtml(rental);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  const safeName = (rental.customerName || 'customer').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'receipt';
+
+  anchor.href = url;
+  anchor.download = `receipt-${safeName}.html`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+  showToast(t('toastReceiptDownloaded'), 'success');
+}
+
+
+
 function renderDetailModalContent(rental) {
   const balance = getRentalBalance(rental);
   return `
@@ -647,7 +846,7 @@ function renderDetailModalContent(rental) {
         </div>
         <div class="detail-field">
           <dt>${escapeHtml(t('labelStatus'))}</dt>
-          <dd>${escapeHtml(translateStatus(rental.status))}</dd>
+          <dd>${escapeHtml(getDisplayStatusText(rental))}</dd>
         </div>
       </dl>
     </div>
@@ -680,6 +879,14 @@ function renderDetailModalContent(rental) {
       <h3 class="detail-section-title">${escapeHtml(t('labelNotes'))}</h3>
       <p class="detail-notes">${escapeHtml(rental.notes)}</p>
     </div>` : ''}
+
+    <div class="detail-modal-section">
+      <h3 class="detail-section-title">${escapeHtml(t('labelStatus'))}</h3>
+      <div class="flex flex-wrap items-center gap-2">
+        ${renderStatusBadge(rental)}
+        <span class="text-sm text-slate-600">${escapeHtml(translateStatus(rental.status))}</span>
+      </div>
+    </div>
   `;
 }
 
@@ -754,6 +961,10 @@ function renderRentalCard(rental) {
         <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thNotes'))}</dt>
         <dd class="text-slate-600">${renderNotesCell(rental.notes, 60)}</dd>
       </div>` : ''}
+      <div class="col-span-2">
+        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thStatus'))}</dt>
+        <dd>${renderStatusBadge(rental)}</dd>
+      </div>
     </dl>
     ${renderDetailsButton(rental.id, true)}
   `;
@@ -766,6 +977,18 @@ function setRentalsViewVisible(show) {
   });
 }
 
+function getDisplayStatusText(rental) {
+  const rowStatus = getRowStatus(rental);
+
+  if (rowStatus === 'returned') return t('statusReturned');
+  if (rowStatus === 'overdue') return t('badgeOverdue');
+  if (rowStatus === 'going-today') return t('badgeGoingToday');
+  if (rowStatus === 'due-today') return t('badgeDueToday');
+  if (rowStatus === 'upcoming') return t('badgeUpcoming');
+  if (rowStatus === 'pending') return t('badgePending');
+  return t('statusPending');
+}
+
 function renderStatusBadge(rental) {
   const rowStatus = getRowStatus(rental);
 
@@ -774,6 +997,9 @@ function renderStatusBadge(rental) {
   }
   if (rowStatus === 'overdue') {
     return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white uppercase tracking-wide">${escapeHtml(t('badgeOverdue'))}</span>`;
+  }
+  if (rowStatus === 'going-today') {
+    return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-800">${escapeHtml(t('badgeGoingToday'))}</span>`;
   }
   if (rowStatus === 'upcoming') {
     return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">${escapeHtml(t('badgeUpcoming'))}</span>`;
@@ -786,21 +1012,24 @@ function renderStatusBadge(rental) {
 
 function renderTable() {
   const filtered = getFilteredRentals();
+  const { items: paginatedRentals } = getPaginatedRentals(filtered);
 
   els.tableBody.innerHTML = '';
   els.rentalsCards.innerHTML = '';
 
   if (filtered.length === 0) {
+    currentPage = 1;
     updateEmptyState(rentals.length > 0, false);
     els.emptyState.classList.remove('hidden');
     setRentalsViewVisible(false);
+    renderPagination(0);
     return;
   }
 
   els.emptyState.classList.add('hidden');
   setRentalsViewVisible(true);
 
-  filtered.forEach((rental) => {
+  paginatedRentals.forEach((rental) => {
     els.rentalsCards.appendChild(renderRentalCard(rental));
 
     const tr = document.createElement('tr');
@@ -814,10 +1043,67 @@ function renderTable() {
       <td class="px-3 py-3 whitespace-nowrap font-medium">${formatCurrency(rental.totalPrice)}</td>
       <td class="px-3 py-3 whitespace-nowrap">${renderPaymentCell(rental)}</td>
       <td class="px-3 py-3 max-w-[10rem]">${renderNotesCell(rental.notes)}</td>
+      <td class="px-3 py-3 whitespace-nowrap">${renderStatusBadge(rental)}</td>
       <td class="px-2 py-3 whitespace-nowrap text-right">${renderDetailsButton(rental.id)}</td>
     `;
     els.tableBody.appendChild(tr);
   });
+
+  renderPagination(filtered.length);
+}
+
+function getTodaySales() {
+  const today = todayISO();
+  return rentals
+    .filter((rental) => rental.bookingDate === today)
+    .reduce((sum, rental) => sum + (Number(rental.totalPrice) || 0), 0);
+}
+
+function getMonthlyRevenue() {
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  return rentals
+    .filter((rental) => rental.bookingDate && rental.bookingDate.slice(0, 7) === currentMonth)
+    .reduce((sum, rental) => sum + (Number(rental.totalPrice) || 0), 0);
+}
+
+function getTopColors() {
+  const counts = new Map();
+
+  rentals.forEach((rental) => {
+    (rental.blazers || []).forEach((blazer) => {
+      const colorName = (blazer?.colorName || '').trim();
+      if (!colorName) return;
+      counts.set(colorName, (counts.get(colorName) || 0) + 1);
+    });
+  });
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([name, count]) => `${name} (${count})`);
+}
+
+function getOverdueRate() {
+  const pending = rentals.filter((rental) => rental.status === 'Pending').length;
+  if (!pending) return 0;
+  const overdue = rentals.filter(isOverdue).length;
+  return Math.round((overdue / pending) * 100);
+}
+
+function renderAnalytics() {
+  if (!els.analyticsDailySalesValue || !els.analyticsMonthlyRevenueValue || !els.analyticsTopColorsValue || !els.analyticsOverdueRateValue) {
+    return;
+  }
+
+  const topColors = getTopColors();
+  const dailySales = getTodaySales();
+  const monthlyRevenue = getMonthlyRevenue();
+  const overdueRate = getOverdueRate();
+
+  els.analyticsDailySalesValue.textContent = formatCurrency(dailySales);
+  els.analyticsMonthlyRevenueValue.textContent = formatCurrency(monthlyRevenue);
+  els.analyticsTopColorsValue.textContent = topColors.length ? topColors.join(' · ') : t('analyticsNoData');
+  els.analyticsOverdueRateValue.textContent = `${overdueRate}%`;
 }
 
 function renderStats() {
@@ -826,11 +1112,15 @@ function renderStats() {
   const active = rentals.filter((r) => r.status === 'Pending').length;
   const overdue = rentals.filter(isOverdue).length;
   const todayReturns = rentals.filter(isReturnDueToday).length;
+  const todayGoingBlazers = rentals
+    .filter(isGoingOutToday)
+    .reduce((sum, rental) => sum + getBlazerCountForRental(rental), 0);
 
   els.statTotal.textContent = total;
   els.statActive.textContent = active;
   els.statOverdue.textContent = overdue;
   els.statTodayReturns.textContent = todayReturns;
+  els.statTodayGoingBlazers.textContent = todayGoingBlazers;
 
   const dateObj = new Date(today + 'T12:00:00');
   els.todayDisplay.textContent = dateObj.toLocaleDateString(getDateLocale(), {
@@ -840,7 +1130,9 @@ function renderStats() {
 
 function render() {
   renderStats();
+  renderAnalytics();
   renderTable();
+  applyI18n();
 }
 
 function escapeHtml(str) {
@@ -983,6 +1275,17 @@ function handleTableClick(e) {
   const rental = rentals.find((r) => r.id === id);
   if (!rental) return;
 
+  if (action === 'print-receipt') {
+    printRentalReceipt(rental);
+    return;
+  }
+
+  if (action === 'download-receipt') {
+    downloadRentalReceipt(rental);
+    return;
+  }
+  if (!rental) return;
+
   const afterAction = () => {
     refreshDetailModalIfOpen();
     render();
@@ -1029,6 +1332,17 @@ function handleTableClick(e) {
 }
 
 function initEventListeners() {
+  els.analyticsToggleBtn?.addEventListener('click', () => {
+    const isHidden = els.analyticsPanel.classList.contains('hidden');
+    if (isHidden) {
+      els.analyticsPanel.classList.remove('hidden');
+      els.analyticsToggleIcon.classList.add('rotate-180');
+    } else {
+      els.analyticsPanel.classList.add('hidden');
+      els.analyticsToggleIcon.classList.remove('rotate-180');
+    }
+  });
+
   els.form.addEventListener('submit', handleSubmit);
   els.cancelEditBtn.addEventListener('click', resetForm);
   els.tableBody.addEventListener('click', handleTableClick);
@@ -1042,11 +1356,44 @@ function initEventListeners() {
     }
   });
 
-  els.searchInput.addEventListener('input', renderTable);
-  els.dateFilterField.addEventListener('change', renderTable);
-  els.dateFrom.addEventListener('change', renderTable);
-  els.dateTo.addEventListener('change', renderTable);
-  els.clearFiltersBtn.addEventListener('click', clearFilters);
+  els.searchInput.addEventListener('input', () => {
+    currentPage = 1;
+    renderTable();
+  });
+  els.dateFilterField.addEventListener('change', () => {
+    currentPage = 1;
+    renderTable();
+  });
+  els.dateFrom.addEventListener('change', () => {
+    currentPage = 1;
+    renderTable();
+  });
+  els.dateTo.addEventListener('change', () => {
+    currentPage = 1;
+    renderTable();
+  });
+  els.clearFiltersBtn.addEventListener('click', () => {
+    currentPage = 1;
+    clearFilters();
+  });
+  els.paginationControls?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-page-action]');
+    if (!button) return;
+
+    const action = button.dataset.pageAction;
+    const filtered = getFilteredRentals();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+
+    if (action === 'prev' && currentPage > 1) {
+      currentPage -= 1;
+      renderTable();
+    }
+
+    if (action === 'next' && currentPage < totalPages) {
+      currentPage += 1;
+      renderTable();
+    }
+  });
 
   els.addBlazerBtn?.addEventListener('click', () => {
     els.blazersList.appendChild(createBlazerRow({ colorType: 'Dark Color' }));
