@@ -11,6 +11,7 @@ let syncState = 'loading';
 let previousSnapshot = [];
 let activeDetailRentalId = null;
 let activeQuickFilter = 'all';
+let pendingRestore = null;
 const ITEMS_PER_PAGE = 10;
 let currentPage = 1;
 
@@ -55,6 +56,11 @@ const els = {
   detailModalTitle: $('detailModalTitle'),
   detailModalBody: $('detailModalBody'),
   detailModalActions: $('detailModalActions'),
+  restoreBackupInput: $('restoreBackupInput'),
+  restorePreviewModal: $('restorePreviewModal'),
+  restorePreviewBody: $('restorePreviewBody'),
+  restoreMergeBtn: $('restoreMergeBtn'),
+  restoreReplaceBtn: $('restoreReplaceBtn'),
   emptyState: $('emptyState'),
   emptyTitle: $('emptyTitle'),
   emptySubtitle: $('emptySubtitle'),
@@ -1274,6 +1280,96 @@ function backupRentalData() {
   showToast(t('toastBackupCreated'), 'success');
 }
 
+function closeRestorePreview() {
+  pendingRestore = null;
+  els.restorePreviewModal?.classList.add('hidden');
+  els.restorePreviewModal?.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('modal-open');
+}
+
+function renderRestorePreview(items, fileName) {
+  const previewItems = items.slice(0, 5);
+  els.restorePreviewBody.innerHTML = `
+    <div class="rounded-lg border border-brand-100 bg-brand-50 p-3 text-sm text-brand-900">
+      <p class="font-semibold">${escapeHtml(fileName)}</p>
+      <p class="mt-1">${escapeHtml(t('restorePreviewCount', { count: items.length }))}</p>
+    </div>
+    <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+      <table class="w-full min-w-[34rem] text-left text-sm">
+        <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-3 py-2">${escapeHtml(t('thName'))}</th><th class="px-3 py-2">${escapeHtml(t('thPhone'))}</th><th class="px-3 py-2">${escapeHtml(t('thBooking'))}</th><th class="px-3 py-2">${escapeHtml(t('thStatus'))}</th></tr></thead>
+        <tbody class="divide-y divide-slate-200">${previewItems.map((item) => `<tr><td class="px-3 py-2 font-medium">${escapeHtml(item.customerName || '—')}</td><td class="px-3 py-2">${escapeHtml(item.phoneNumber || '—')}</td><td class="px-3 py-2">${formatDate(item.bookingDate)}</td><td class="px-3 py-2">${escapeHtml(item.status || 'Pending')}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+    ${items.length > previewItems.length ? `<p class="mt-2 text-xs text-slate-500">${escapeHtml(t('restorePreviewMore', { count: items.length - previewItems.length }))}</p>` : ''}
+    <p class="mt-4 text-sm text-slate-600">${escapeHtml(t('restorePreviewChoice'))}</p>
+  `;
+  els.restorePreviewModal.classList.remove('hidden');
+  els.restorePreviewModal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+}
+
+async function handleRestoreFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+
+  try {
+    const parsed = JSON.parse(await file.text());
+    const sourceItems = Array.isArray(parsed) ? parsed : parsed?.rentals;
+    if (!Array.isArray(sourceItems) || !sourceItems.length) throw new Error('No rentals found');
+    if (sourceItems.length > 10000) throw new Error('Backup is too large');
+
+    const seenIds = new Set();
+    const imported = sourceItems
+      .filter((item) => item && typeof item === 'object' && String(item.customerName || '').trim())
+      .map((item) => {
+        let id = String(item.id || '').trim();
+        if (!id || seenIds.has(id)) id = generateId();
+        seenIds.add(id);
+        const normalized = normalizeRental(item);
+        return sanitizeRentalForSave({ ...normalized, id, status: normalized.status === 'Returned' ? 'Returned' : 'Pending' });
+      });
+    if (!imported.length) throw new Error('No valid rentals found');
+
+    pendingRestore = { items: imported, fileName: file.name };
+    renderRestorePreview(imported, file.name);
+  } catch (error) {
+    console.error(error);
+    showToast(t('toastRestoreInvalid'), 'error');
+  }
+}
+
+async function restoreRentalData(mode) {
+  if (!pendingRestore?.items?.length) return;
+  const count = pendingRestore.items.length;
+  const confirmed = confirm(t(mode === 'replace' ? 'confirmRestoreReplace' : 'confirmRestoreMerge', { count }));
+  if (!confirmed) return;
+
+  const imported = pendingRestore.items;
+  const previousRentals = rentals;
+  if (mode === 'replace') {
+    rentals = imported;
+  } else {
+    const byId = new Map(rentals.map((item) => [item.id, item]));
+    imported.forEach((item) => byId.set(item.id, item));
+    rentals = [...byId.values()];
+  }
+
+  els.restoreMergeBtn.disabled = true;
+  els.restoreReplaceBtn.disabled = true;
+  try {
+    await saveRentals();
+    closeRestorePreview();
+    render();
+    showToast(t('toastRestoreSuccess'), 'success');
+  } catch {
+    rentals = previousRentals;
+    els.restoreMergeBtn.disabled = false;
+    els.restoreReplaceBtn.disabled = false;
+    showToast(t('toastSyncError'), 'error');
+  }
+}
+
 function renderStats() {
   const today = todayISO();
   const total = rentals.length;
@@ -1525,11 +1621,14 @@ function initEventListeners() {
   els.rentalsCards.addEventListener('click', handleTableClick);
   els.detailModal?.addEventListener('click', handleTableClick);
   els.detailModalActions?.addEventListener('click', handleTableClick);
+  els.restorePreviewModal?.addEventListener('click', (event) => {
+    if (event.target.closest('[data-action="close-restore"]')) closeRestorePreview();
+  });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && activeDetailRentalId) {
-      closeDetailModal();
-    }
+    if (e.key !== 'Escape') return;
+    if (!els.restorePreviewModal?.classList.contains('hidden')) closeRestorePreview();
+    else if (activeDetailRentalId) closeDetailModal();
   });
 
   els.searchInput.addEventListener('input', () => {
@@ -1562,6 +1661,9 @@ function initEventListeners() {
   });
   els.exportCsvBtn?.addEventListener('click', exportBookingsCsv);
   els.backupDataBtn?.addEventListener('click', backupRentalData);
+  els.restoreBackupInput?.addEventListener('change', handleRestoreFile);
+  els.restoreMergeBtn?.addEventListener('click', () => restoreRentalData('merge'));
+  els.restoreReplaceBtn?.addEventListener('click', () => restoreRentalData('replace'));
   els.paginationControls?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-page-action]');
     if (!button) return;
