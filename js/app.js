@@ -603,8 +603,6 @@ function renderActionButtons(rental, compact = false) {
         class="${btnClass} bg-violet-600 text-white hover:bg-violet-700">${escapeHtml(t('btnPrintReceipt'))}</button>
       <button type="button" data-action="download-receipt" data-id="${rental.id}"
         class="${btnClass} bg-slate-700 text-white hover:bg-slate-800">${escapeHtml(t('btnDownloadReceipt'))}</button>
-      <button type="button" data-action="share-whatsapp" data-id="${rental.id}"
-        class="${btnClass} bg-green-600 text-white hover:bg-green-700">${escapeHtml(t('btnShareWhatsApp'))}</button>
       ${rental.status === 'Pending' && balance > 0
         ? `<button type="button" data-action="collect-balance" data-id="${rental.id}"
             class="${btnClass} bg-amber-500 text-white hover:bg-amber-600">${escapeHtml(t('btnCollectBalance'))}</button>`
@@ -815,43 +813,7 @@ function downloadRentalReceipt(rental) {
   showToast(t('toastReceiptDownloaded'), 'success');
 }
 
-function buildWhatsAppMessage(rental) {
-  const blazers = Array.isArray(rental.blazers) && rental.blazers.length ? rental.blazers : [{ blazerCode: rental.blazerCode || '—', colorName: rental.colorName || '—' }];
-  const blazerList = blazers.map((b) => `  • ${b.blazerCode} - ${b.colorName}`).join('\n');
-  const balance = getRentalBalance(rental);
-  
-  return `*Madhusanka Tailors Rental Receipt*\n\n` +
-    `📋 *Receipt No:* ${rental.id}\n` +
-    `👤 *Customer:* ${rental.customerName}\n` +
-    `📞 *Phone:* ${rental.phoneNumber}\n\n` +
-    `📅 *Booking Date:* ${formatDate(rental.bookingDate)}\n` +
-    `📦 *Pickup Date:* ${formatDate(rental.pickupDate)}\n` +
-    `🔄 *Return Date:* ${formatDate(rental.returnDate)}\n\n` +
-    `👔 *Blazers:*\n${blazerList}\n\n` +
-    `💰 *Charges:*\n` +
-    `  Total: ${formatCurrency(rental.totalPrice || 0)}\n` +
-    `  Paid: ${formatCurrency(rental.advancePaid || 0)}\n` +
-    `  Balance: ${formatCurrency(balance)}\n\n` +
-    `📍 *Status:* ${getDisplayStatusText(rental)}\n\n` +
-    `Thank you for renting with us!`;
-}
 
-function shareReceiptViaWhatsApp(rental) {
-  const phoneNumber = rental.phoneNumber?.replace(/\D/g, '') || '';
-  const shortMessage = `Your receipt is ready for ${rental.customerName}. Total: ${formatCurrency(rental.totalPrice || 0)}`;
-  const whatsappUrl = phoneNumber
-    ? `https://wa.me/${phoneNumber}?text=${encodeURIComponent(shortMessage)}`
-    : `https://wa.me/?text=${encodeURIComponent(shortMessage)}`;
-
-  const popup = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-  if (!popup) {
-    showToast(t('toastReceiptBlocked'), 'error');
-    return;
-  }
-
-  popup.focus();
-  showToast(t('toastReceiptSharedWhatsApp'), 'success');
-}
 
 function renderDetailModalContent(rental) {
   const balance = getRentalBalance(rental);
@@ -1320,10 +1282,6 @@ function handleTableClick(e) {
 
   if (action === 'download-receipt') {
     downloadRentalReceipt(rental);
-    return;
-  }
-  if (action === 'share-whatsapp') {
-    shareReceiptViaWhatsApp(rental);
     return;
   }
   if (!rental) return;
