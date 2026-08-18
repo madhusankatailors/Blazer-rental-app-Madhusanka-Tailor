@@ -1114,13 +1114,25 @@ function downloadTextFile(fileName, content, mimeType) {
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = fileName;
+  anchor.rel = 'noopener';
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(url);
+  // Leave the object URL available until the browser has started the download.
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-function getExportCsvRows() {
+function escapeCsvValue(value) {
+  let text = String(value ?? '');
+
+  // Excel evaluates cells beginning with these characters as formulas. Prefixing
+  // them with an apostrophe preserves the source value as text in an audit export.
+  if (/^\s*[=+\-@]/.test(text)) text = `'${text}`;
+
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function getExportCsvRows(items) {
   const header = [
     'Booking ID',
     'Customer Name',
@@ -1139,7 +1151,7 @@ function getExportCsvRows() {
     'Late Penalty',
   ];
 
-  const rows = rentals.map((rental) => {
+  const rows = items.map((rental) => {
     const blazers = (rental.blazers || []).map((blazer) => blazer.blazerCode || '').filter(Boolean).join('; ');
     const colors = (rental.blazers || []).map((blazer) => `${blazer.colorName || ''} (${blazer.colorType || 'Dark Color'})`).filter(Boolean).join('; ');
     const latePenalty = Number(rental.latePenalty || 0);
@@ -1168,20 +1180,19 @@ function getExportCsvRows() {
 }
 
 function exportBookingsCsv() {
-  if (!rentals.length) {
+  const exportedRentals = getFilteredRentals();
+  if (!exportedRentals.length) {
     showToast(t('toastNoDataToExport'), 'info');
     return;
   }
 
-  const csvRows = getExportCsvRows().map((row) =>
-    row.map((value) => {
-      const text = String(value ?? '').replace(/"/g, '""');
-      return `"${text}"`;
-    }).join(',')
-  );
+  const csvRows = getExportCsvRows(exportedRentals)
+    .map((row) => row.map(escapeCsvValue).join(','));
 
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-  downloadTextFile(`blazer-rental-bookings-${stamp}.csv`, `${csvRows.join('\n')}\n`, 'text/csv;charset=utf-8');
+  // The BOM makes Sinhala names and notes display correctly when the file is
+  // opened directly in Microsoft Excel.
+  downloadTextFile(`blazer-rental-bookings-${stamp}.csv`, `\uFEFF${csvRows.join('\n')}\n`, 'text/csv;charset=utf-8');
   showToast(t('toastExportedCsv'), 'success');
 }
 
@@ -1192,10 +1203,13 @@ function backupRentalData() {
   }
 
   const backup = {
+    format: 'madhusanka-tailors-rental-backup',
+    version: 1,
     exportedAt: new Date().toISOString(),
+    application: 'Blazer Rental Management',
     totalBookings: rentals.length,
-    rentals: rentals.map((rental) => ({
-      ...rental,
+    rentals: normalizeRentals(rentals).map((rental) => ({
+      ...sanitizeRentalForSave(rental),
       balanceDue: getRentalBalance(rental),
     })),
   };
