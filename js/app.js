@@ -6,9 +6,11 @@ const PRICES = { 'Light Color': 2000, 'Dark Color': 1750 };
 let rentals = [];
 let returnDateManuallyEdited = false;
 let hasLoadedCloudData = false;
+let pendingLocalWrites = 0;
 let syncState = 'loading';
 let previousSnapshot = [];
 let activeDetailRentalId = null;
+let activeQuickFilter = 'all';
 const ITEMS_PER_PAGE = 10;
 let currentPage = 1;
 
@@ -42,6 +44,9 @@ const els = {
   clearFiltersBtn: $('clearFiltersBtn'),
   exportCsvBtn: $('exportCsvBtn'),
   backupDataBtn: $('backupDataBtn'),
+  newBookingBtn: $('newBookingBtn'),
+  bookingFormSection: $('bookingFormSection'),
+  quickFilters: $('quickFilters'),
   rentalsCards: $('rentalsCards'),
   tableScroll: $('tableScroll'),
   mobileCardsHint: $('mobileCardsHint'),
@@ -59,6 +64,7 @@ const els = {
   statOverdue: $('statOverdue'),
   statTodayReturns: $('statTodayReturns'),
   statTodayGoingBlazers: $('statTodayGoingBlazers'),
+  statOutstandingBalance: $('statOutstandingBalance'),
   analyticsDailySalesValue: $('analyticsDailySalesValue'),
   analyticsMonthlyRevenueValue: $('analyticsMonthlyRevenueValue'),
   analyticsTopColorsValue: $('analyticsTopColorsValue'),
@@ -385,6 +391,7 @@ function loadRentals() {
 
 async function saveRentals() {
   setSyncState('saving');
+  pendingLocalWrites += 1;
   try {
     await persistRentals(rentals);
     setSyncState('saved');
@@ -393,6 +400,8 @@ async function saveRentals() {
     setSyncState('error');
     alert(t('syncError'));
     throw error;
+  } finally {
+    pendingLocalWrites = Math.max(0, pendingLocalWrites - 1);
   }
 }
 
@@ -452,6 +461,7 @@ function getFormData() {
 }
 
 function populateForm(rental) {
+  setBookingFormVisible(true);
   const normalized = normalizeRental(rental);
   els.editId.value = normalized.id;
   els.customerName.value = normalized.customerName;
@@ -510,10 +520,21 @@ function matchesDateFilter(rental) {
   return true;
 }
 
+function matchesQuickFilter(rental) {
+  switch (activeQuickFilter) {
+    case 'pickups-today': return isPickupToday(rental);
+    case 'returns-today': return isReturnDueToday(rental);
+    case 'overdue': return isOverdue(rental);
+    case 'pending': return rental.status === 'Pending';
+    case 'returned': return rental.status === 'Returned';
+    default: return true;
+  }
+}
+
 function getFilteredRentals() {
   const query = els.searchInput.value.trim();
   return rentals
-    .filter((r) => matchesSearch(r, query) && matchesDateFilter(r))
+    .filter((r) => matchesSearch(r, query) && matchesDateFilter(r) && matchesQuickFilter(r))
     .sort((a, b) => b.bookingDate.localeCompare(a.bookingDate) || b.id.localeCompare(a.id));
 }
 
@@ -579,7 +600,31 @@ function clearFilters() {
   els.dateFrom.value = '';
   els.dateTo.value = '';
   els.dateFilterField.value = 'bookingDate';
+  activeQuickFilter = 'all';
   renderTable();
+}
+
+function renderQuickFilters() {
+  els.quickFilters?.querySelectorAll('[data-quick-filter]').forEach((button) => {
+    const isActive = button.dataset.quickFilter === activeQuickFilter;
+    button.className = `quick-filter-btn inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${isActive
+      ? 'border-brand-600 bg-brand-600 text-white'
+      : 'border-slate-300 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700'}`;
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+}
+
+function setBookingFormVisible(visible) {
+  if (!els.bookingFormSection) return;
+  els.bookingFormSection.hidden = !visible;
+  els.newBookingBtn?.setAttribute('aria-expanded', String(visible));
+
+  if (visible) {
+    requestAnimationFrame(() => {
+      els.bookingFormSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      els.customerName?.focus({ preventScroll: true });
+    });
+  }
 }
 
 function renderPaymentCell(rental) {
@@ -601,10 +646,8 @@ function renderActionButtons(rental, compact = false) {
 
   return `
     <div class="flex flex-wrap items-center justify-end gap-1 ${compact ? 'rental-card-actions w-full' : 'table-action-group'}">
-      <button type="button" data-action="print-receipt" data-id="${rental.id}"
-        class="${btnClass} bg-violet-600 text-white hover:bg-violet-700">${escapeHtml(t('btnPrintReceipt'))}</button>
       <button type="button" data-action="download-receipt" data-id="${rental.id}"
-        class="${btnClass} bg-slate-700 text-white hover:bg-slate-800">${escapeHtml(t('btnDownloadReceipt'))}</button>
+        class="${btnClass} bg-violet-600 text-white hover:bg-violet-700">${escapeHtml(t('btnDownloadReceipt'))}</button>
       ${rental.status === 'Pending' && balance > 0
         ? `<button type="button" data-action="collect-balance" data-id="${rental.id}"
             class="${btnClass} bg-amber-500 text-white hover:bg-amber-600">${escapeHtml(t('btnCollectBalance'))}</button>`
@@ -736,7 +779,7 @@ function buildReceiptHtml(rental) {
       <div class="receipt">
         <div class="header">
           <div>
-            <div class="brand">Madhusanka Tailors</div>
+            <div class="brand">Madhusanka Tailor's</div>
             <div class="label">Rental Receipt</div>
           </div>
           <div style="text-align: right;">
@@ -782,37 +825,52 @@ function buildReceiptHtml(rental) {
     </html>`;
 }
 
-function printRentalReceipt(rental) {
-  const receiptWindow = window.open('', '_blank', 'width=900,height=1000');
-  if (!receiptWindow) {
-    showToast(t('toastReceiptBlocked'), 'error');
+async function downloadRentalReceipt(rental) {
+  if (!window.html2canvas || !window.jspdf?.jsPDF) {
+    showToast(t('toastPdfUnavailable'), 'error');
     return;
   }
 
-  const html = buildReceiptHtml(rental);
-  receiptWindow.document.open();
-  receiptWindow.document.write(html);
-  receiptWindow.document.close();
-  setTimeout(() => {
-    receiptWindow.focus();
-    receiptWindow.print();
-  }, 300);
-}
+  const source = new DOMParser().parseFromString(buildReceiptHtml(rental), 'text/html');
+  const receipt = document.createElement('div');
+  receipt.style.cssText = 'position:fixed;left:-10000px;top:0;width:824px;background:#fff;z-index:-1;';
+  const styles = source.head.querySelector('style');
+  if (styles) receipt.appendChild(styles.cloneNode(true));
+  receipt.append(...Array.from(source.body.children).map((child) => child.cloneNode(true)));
+  document.body.appendChild(receipt);
 
-function downloadRentalReceipt(rental) {
-  const html = buildReceiptHtml(rental);
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
   const safeName = (rental.customerName || 'customer').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'receipt';
+  try {
+    const canvas = await window.html2canvas(receipt, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+    });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imageHeight = (canvas.height * pageWidth) / canvas.width;
+    const image = canvas.toDataURL('image/jpeg', 0.95);
+    let remainingHeight = imageHeight;
+    let position = 0;
 
-  anchor.href = url;
-  anchor.download = `receipt-${safeName}.html`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-  showToast(t('toastReceiptDownloaded'), 'success');
+    pdf.addImage(image, 'JPEG', 0, position, pageWidth, imageHeight);
+    remainingHeight -= pageHeight;
+    while (remainingHeight > 0) {
+      position -= pageHeight;
+      pdf.addPage();
+      pdf.addImage(image, 'JPEG', 0, position, pageWidth, imageHeight);
+      remainingHeight -= pageHeight;
+    }
+    pdf.save(`Madhusanka Tailor's receipt-${safeName}.pdf`);
+    showToast(t('toastReceiptDownloaded'), 'success');
+  } catch (error) {
+    console.error(error);
+    showToast(t('toastPdfUnavailable'), 'error');
+  } finally {
+    receipt.remove();
+  }
 }
 
 
@@ -1039,12 +1097,9 @@ function renderTable() {
     tr.innerHTML = `
       <td class="px-3 py-3 whitespace-nowrap">${formatDate(rental.bookingDate)}</td>
       <td class="px-3 py-3 whitespace-nowrap font-medium max-w-[8rem] truncate" title="${escapeHtml(rental.customerName)}">${escapeHtml(rental.customerName)}</td>
-      <td class="px-3 py-3 whitespace-nowrap">${renderPhoneLink(rental.phoneNumber)}</td>
       <td class="px-3 py-3 whitespace-nowrap">${renderBlazerCodesCell(rental)}</td>
-      <td class="px-3 py-3">${renderBlazerColorsCell(rental)}</td>
-      <td class="px-3 py-3 whitespace-nowrap font-medium">${formatCurrency(rental.totalPrice)}</td>
+      <td class="px-3 py-3 whitespace-nowrap">${formatDate(rental.returnDate)}</td>
       <td class="px-3 py-3 whitespace-nowrap">${renderPaymentCell(rental)}</td>
-      <td class="px-3 py-3 max-w-[10rem]">${renderNotesCell(rental.notes)}</td>
       <td class="px-3 py-3 whitespace-nowrap">${renderStatusBadge(rental)}</td>
       <td class="px-2 py-3 whitespace-nowrap text-right">${renderDetailsButton(rental.id)}</td>
     `;
@@ -1228,12 +1283,16 @@ function renderStats() {
   const todayGoingBlazers = rentals
     .filter(isGoingOutToday)
     .reduce((sum, rental) => sum + getBlazerCountForRental(rental), 0);
+  const outstandingBalance = rentals
+    .filter((rental) => rental.status === 'Pending')
+    .reduce((sum, rental) => sum + getRentalBalance(rental), 0);
 
   els.statTotal.textContent = total;
   els.statActive.textContent = active;
   els.statOverdue.textContent = overdue;
   els.statTodayReturns.textContent = todayReturns;
   els.statTodayGoingBlazers.textContent = todayGoingBlazers;
+  els.statOutstandingBalance.textContent = formatCurrency(outstandingBalance);
 
   const dateObj = new Date(today + 'T12:00:00');
   els.todayDisplay.textContent = dateObj.toLocaleDateString(getDateLocale(), {
@@ -1244,6 +1303,7 @@ function renderStats() {
 function render() {
   renderStats();
   renderAnalytics();
+  renderQuickFilters();
   renderTable();
   applyI18n();
 }
@@ -1362,6 +1422,7 @@ function handleSubmit(e) {
       const successMessage = els.editId.value ? t('toastBookingUpdated') : t('toastBookingSaved');
       showToast(successMessage, 'success');
       resetForm();
+      setBookingFormVisible(false);
     })
     .catch(() => {
       setSubmitButtonLoading(false);
@@ -1387,11 +1448,6 @@ function handleTableClick(e) {
 
   const rental = rentals.find((r) => r.id === id);
   if (!rental) return;
-
-  if (action === 'print-receipt') {
-    printRentalReceipt(rental);
-    return;
-  }
 
   if (action === 'download-receipt') {
     downloadRentalReceipt(rental);
@@ -1457,7 +1513,14 @@ function initEventListeners() {
   });
 
   els.form.addEventListener('submit', handleSubmit);
-  els.cancelEditBtn.addEventListener('click', resetForm);
+  els.cancelEditBtn.addEventListener('click', () => {
+    resetForm();
+    setBookingFormVisible(false);
+  });
+  els.newBookingBtn?.addEventListener('click', () => {
+    resetForm();
+    setBookingFormVisible(true);
+  });
   els.tableBody.addEventListener('click', handleTableClick);
   els.rentalsCards.addEventListener('click', handleTableClick);
   els.detailModal?.addEventListener('click', handleTableClick);
@@ -1488,6 +1551,14 @@ function initEventListeners() {
   els.clearFiltersBtn.addEventListener('click', () => {
     currentPage = 1;
     clearFilters();
+  });
+  els.quickFilters?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-quick-filter]');
+    if (!button) return;
+    activeQuickFilter = button.dataset.quickFilter || 'all';
+    currentPage = 1;
+    renderTable();
+    renderQuickFilters();
   });
   els.exportCsvBtn?.addEventListener('click', exportBookingsCsv);
   els.backupDataBtn?.addEventListener('click', backupRentalData);
@@ -1571,7 +1642,10 @@ async function init() {
       const previousItems = [...rentals];
       rentals = normalizeRentals(items);
 
-      if (hasLoadedCloudData) {
+      // A local write immediately creates a Firestore snapshot. The action that
+      // made that write already shows a specific success toast, so do not show a
+      // second generic snapshot toast for the same change.
+      if (hasLoadedCloudData && pendingLocalWrites === 0) {
         notifyRemoteBookingChange(previousItems, items);
       }
 
