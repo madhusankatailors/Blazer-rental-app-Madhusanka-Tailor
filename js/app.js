@@ -40,6 +40,8 @@ const els = {
   dateFrom: $('dateFrom'),
   dateTo: $('dateTo'),
   clearFiltersBtn: $('clearFiltersBtn'),
+  exportCsvBtn: $('exportCsvBtn'),
+  backupDataBtn: $('backupDataBtn'),
   rentalsCards: $('rentalsCards'),
   tableScroll: $('tableScroll'),
   mobileCardsHint: $('mobileCardsHint'),
@@ -1106,6 +1108,103 @@ function renderAnalytics() {
   els.analyticsOverdueRateValue.textContent = `${overdueRate}%`;
 }
 
+function downloadTextFile(fileName, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function getExportCsvRows() {
+  const header = [
+    'Booking ID',
+    'Customer Name',
+    'Phone Number',
+    'Blazer Codes',
+    'Colors',
+    'Booking Date',
+    'Pickup Date',
+    'Return Date',
+    'Status',
+    'Total Price',
+    'Advance Paid',
+    'Balance Due',
+    'Deposit Type',
+    'Notes',
+    'Late Penalty',
+  ];
+
+  const rows = rentals.map((rental) => {
+    const blazers = (rental.blazers || []).map((blazer) => blazer.blazerCode || '').filter(Boolean).join('; ');
+    const colors = (rental.blazers || []).map((blazer) => `${blazer.colorName || ''} (${blazer.colorType || 'Dark Color'})`).filter(Boolean).join('; ');
+    const latePenalty = Number(rental.latePenalty || 0);
+    const balanceDue = getRentalBalance(rental);
+
+    return [
+      rental.id || '',
+      rental.customerName || '',
+      rental.phoneNumber || '',
+      blazers,
+      colors,
+      rental.bookingDate || '',
+      rental.pickupDate || '',
+      rental.returnDate || '',
+      rental.status || '',
+      Number(rental.totalPrice || 0),
+      Number(rental.advancePaid || 0),
+      balanceDue,
+      rental.depositType || '',
+      rental.notes || '',
+      latePenalty,
+    ];
+  });
+
+  return [header, ...rows];
+}
+
+function exportBookingsCsv() {
+  if (!rentals.length) {
+    showToast(t('toastNoDataToExport'), 'info');
+    return;
+  }
+
+  const csvRows = getExportCsvRows().map((row) =>
+    row.map((value) => {
+      const text = String(value ?? '').replace(/"/g, '""');
+      return `"${text}"`;
+    }).join(',')
+  );
+
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  downloadTextFile(`blazer-rental-bookings-${stamp}.csv`, `${csvRows.join('\n')}\n`, 'text/csv;charset=utf-8');
+  showToast(t('toastExportedCsv'), 'success');
+}
+
+function backupRentalData() {
+  if (!rentals.length) {
+    showToast(t('toastNoDataToExport'), 'info');
+    return;
+  }
+
+  const backup = {
+    exportedAt: new Date().toISOString(),
+    totalBookings: rentals.length,
+    rentals: rentals.map((rental) => ({
+      ...rental,
+      balanceDue: getRentalBalance(rental),
+    })),
+  };
+
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  downloadTextFile(`blazer-rental-backup-${stamp}.json`, JSON.stringify(backup, null, 2), 'application/json;charset=utf-8');
+  showToast(t('toastBackupCreated'), 'success');
+}
+
 function renderStats() {
   const today = todayISO();
   const total = rentals.length;
@@ -1376,6 +1475,8 @@ function initEventListeners() {
     currentPage = 1;
     clearFilters();
   });
+  els.exportCsvBtn?.addEventListener('click', exportBookingsCsv);
+  els.backupDataBtn?.addEventListener('click', backupRentalData);
   els.paginationControls?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-page-action]');
     if (!button) return;
