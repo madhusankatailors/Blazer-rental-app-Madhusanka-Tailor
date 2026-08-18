@@ -5,6 +5,21 @@
   <base href="./">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Blazer Rental Management | Madhusanka Tailors</title>
+  <script>
+    // Chrome blocks downloads from insecure hosted pages. Firebase Hosting
+    // provides HTTPS automatically; redirect hosted HTTP visits before the app
+    // starts. Keep localhost available for local development.
+    const hostname = window.location.hostname;
+    const isLocalDevelopment = hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '[::1]'
+      || hostname.endsWith('.local')
+      || /^(10|192\.168)\./.test(hostname)
+      || (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname));
+    if (window.location.protocol === 'http:' && !isLocalDevelopment) {
+      window.location.replace(`https://${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`);
+    }
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {

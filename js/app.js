@@ -869,7 +869,38 @@ async function downloadRentalReceipt(rental) {
       pdf.addImage(image, 'JPEG', 0, position, pageWidth, imageHeight);
       remainingHeight -= pageHeight;
     }
-    pdf.save(`Madhusanka Tailor's receipt-${safeName}.pdf`);
+    const fileName = `receipt-${safeName}.pdf`;
+    const pdfBlob = pdf.output('blob');
+    const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+    const canShareFile = typeof navigator.share === 'function'
+      && typeof navigator.canShare === 'function'
+      && navigator.canShare({ files: [pdfFile] });
+
+    if (canShareFile) {
+      try {
+        await navigator.share({
+          title: t('shareReceiptTitle'),
+          text: t('shareReceiptText', { name: rental.customerName || '' }),
+          files: [pdfFile],
+        });
+        showToast(t('toastReceiptShared'), 'success');
+        return;
+      } catch (shareError) {
+        // A user cancellation is not an error. For other share failures, use
+        // the regular download fallback below.
+        if (shareError?.name === 'AbortError') return;
+      }
+    }
+
+    const url = URL.createObjectURL(pdfBlob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.rel = 'noopener';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     showToast(t('toastReceiptDownloaded'), 'success');
   } catch (error) {
     console.error(error);
