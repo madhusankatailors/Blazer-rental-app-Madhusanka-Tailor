@@ -139,6 +139,13 @@ function getDefaultPrice(colorType) {
   return PRICES[colorType] ?? PRICES['Dark Color'];
 }
 
+function getBlazerPrice(blazer) {
+  if (blazer?.colorType === 'Custom Price') {
+    return Math.max(0, Number(blazer.customPrice) || 0);
+  }
+  return getDefaultPrice(blazer?.colorType || 'Dark Color');
+}
+
 function normalizeRental(rental) {
   if (rental.blazers && Array.isArray(rental.blazers) && rental.blazers.length > 0) {
     return rental;
@@ -186,6 +193,9 @@ function sanitizeRentalForSave(rental) {
 function createBlazerRow(data = {}) {
   const rowId = data._rowId || `blazer-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const colorType = data.colorType || 'Dark Color';
+  const customPrice = Number(data.customPrice) >= 0 && data.customPrice !== '' && data.customPrice != null
+    ? Number(data.customPrice)
+    : '';
   const row = document.createElement('div');
   row.className = 'blazer-row grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50/80';
   row.dataset.rowId = rowId;
@@ -204,7 +214,7 @@ function createBlazerRow(data = {}) {
     </div>
     <div class="sm:col-span-5">
       <span class="block text-xs font-medium text-slate-600 mb-1">${escapeHtml(t('labelColorType'))}</span>
-      <div class="flex flex-col xs:flex-row gap-2 sm:gap-3">
+      <div class="flex flex-col xs:flex-row xs:flex-wrap gap-2 sm:gap-3">
         <label class="inline-flex items-center gap-2 cursor-pointer select-none">
           <input type="radio" name="colorType-${rowId}" data-field="colorType" value="Light Color" class="blazer-color-type shrink-0" ${colorType === 'Light Color' ? 'checked' : ''} />
           <span class="text-xs sm:text-sm">${escapeHtml(t('colorLight'))} <span class="text-slate-400">(Rs. 2000)</span></span>
@@ -213,6 +223,16 @@ function createBlazerRow(data = {}) {
           <input type="radio" name="colorType-${rowId}" data-field="colorType" value="Dark Color" class="blazer-color-type shrink-0" ${colorType === 'Dark Color' ? 'checked' : ''} />
           <span class="text-xs sm:text-sm">${escapeHtml(t('colorDark'))} <span class="text-slate-400">(Rs. 1750)</span></span>
         </label>
+        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+          <input type="radio" name="colorType-${rowId}" data-field="colorType" value="Custom Price" class="blazer-color-type shrink-0" ${colorType === 'Custom Price' ? 'checked' : ''} />
+          <span class="text-xs sm:text-sm">${escapeHtml(t('colorCustom'))}</span>
+        </label>
+      </div>
+      <div class="blazer-custom-price-wrap mt-2 ${colorType === 'Custom Price' ? '' : 'hidden'}">
+        <label class="block text-xs font-medium text-slate-600 mb-1">${escapeHtml(t('labelCustomPrice'))}</label>
+        <input type="number" min="0" step="1"
+          class="blazer-custom-price w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+          placeholder="${escapeHtml(t('placeholderCustomPrice'))}" value="${escapeHtml(String(customPrice))}" ${colorType === 'Custom Price' ? 'required' : 'disabled'} />
       </div>
     </div>
     <div class="sm:col-span-1 flex items-end justify-end sm:justify-center pb-0.5">
@@ -224,10 +244,26 @@ function createBlazerRow(data = {}) {
     </div>
   `;
 
+  const syncCustomPriceUI = () => {
+    const isCustom = row.querySelector('.blazer-color-type:checked')?.value === 'Custom Price';
+    const wrap = row.querySelector('.blazer-custom-price-wrap');
+    const input = row.querySelector('.blazer-custom-price');
+    wrap?.classList.toggle('hidden', !isCustom);
+    if (input) {
+      input.disabled = !isCustom;
+      input.required = isCustom;
+    }
+  };
+
   row.querySelectorAll('.blazer-color-type').forEach((input) => {
-    input.addEventListener('change', updateTotalPriceFromBlazers);
-    input.addEventListener('click', updateTotalPriceFromBlazers);
+    input.addEventListener('change', () => {
+      syncCustomPriceUI();
+      updateTotalPriceFromBlazers();
+    });
   });
+
+  row.querySelector('.blazer-custom-price')?.addEventListener('input', updateTotalPriceFromBlazers);
+  syncCustomPriceUI();
 
   row.querySelector('[data-action="remove-blazer"]')?.addEventListener('click', () => {
     if (els.blazersList.children.length <= 1) return;
@@ -260,11 +296,15 @@ function updateRemoveButtons() {
 function getBlazersFromForm() {
   return Array.from(els.blazersList.querySelectorAll('.blazer-row')).map((row) => {
     const colorTypeInput = row.querySelector('.blazer-color-type:checked');
+    const colorType = colorTypeInput?.value || 'Dark Color';
     return {
       _rowId: row.dataset.rowId,
       blazerCode: row.querySelector('.blazer-code')?.value.trim() || '',
       colorName: row.querySelector('.blazer-color')?.value.trim() || '',
-      colorType: colorTypeInput?.value || 'Dark Color',
+      colorType,
+      customPrice: colorType === 'Custom Price'
+        ? Math.max(0, Number(row.querySelector('.blazer-custom-price')?.value) || 0)
+        : 0,
     };
   });
 }
@@ -357,7 +397,7 @@ function updatePaymentUI() {
 }
 
 function updateTotalPriceFromBlazers() {
-  const total = getBlazersFromForm().reduce((sum, b) => sum + getDefaultPrice(b.colorType), 0);
+  const total = getBlazersFromForm().reduce((sum, blazer) => sum + getBlazerPrice(blazer), 0);
   els.totalPrice.value = total;
   updatePaymentUI();
 }
@@ -783,7 +823,7 @@ function renderDetailModalBlazers(rental) {
         <span class="font-mono text-sm font-bold text-slate-900">${escapeHtml(blazer.blazerCode || '—')}</span>
       </div>
       <p class="text-sm text-slate-700">${escapeHtml(blazer.colorName || '—')}</p>
-      <p class="text-xs text-slate-500">${escapeHtml(translateColorType(blazer.colorType))} · ${escapeHtml(formatCurrency(getDefaultPrice(blazer.colorType)))}</p>
+      <p class="text-xs text-slate-500">${escapeHtml(translateColorType(blazer.colorType))} · ${escapeHtml(formatCurrency(getBlazerPrice(blazer)))}</p>
     </div>
   `).join('');
 }
@@ -795,7 +835,7 @@ function buildReceiptHtml(rental) {
       <td>${escapeHtml(blazer.blazerCode || '—')}</td>
       <td>${escapeHtml(blazer.colorName || '—')}</td>
       <td>${escapeHtml(translateColorType(blazer.colorType || 'Dark Color'))}</td>
-      <td>${escapeHtml(formatCurrency(getDefaultPrice(blazer.colorType || 'Dark Color')))}</td>
+      <td>${escapeHtml(formatCurrency(getBlazerPrice(blazer)))}</td>
     </tr>
   `).join('');
 
