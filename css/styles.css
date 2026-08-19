@@ -1395,3 +1395,133 @@ html[lang="si"] .billing-paper-brand h1 {
     print-color-adjust: exact;
   }
 }
+
+/* =========================================================
+   BILLING ITEM PICKER — MOBILE / TABLET ONLY
+   Keeps the existing desktop bill table unchanged.
+   ========================================================= */
+.billing-compact-item-picker {
+  display: none;
+}
+
+.billing-selected-item-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid rgb(186 230 253);
+  border-radius: 999px;
+  background: rgb(240 249 255);
+  color: rgb(3 105 161);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.billing-selected-item-chip:hover,
+.billing-selected-item-chip:focus-visible {
+  background: rgb(224 242 254);
+  border-color: rgb(125 211 252);
+  outline: none;
+}
+
+.billing-selected-item-chip span {
+  overflow-wrap: anywhere;
+}
+
+.billing-selected-empty {
+  color: rgb(148 163 184);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 1023px) {
+  .billing-compact-item-picker {
+    display: block;
+  }
+
+  .billing-entry-table,
+  .billing-entry-table tbody,
+  .billing-entry-table tr,
+  .billing-entry-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .billing-entry-table thead {
+    display: none;
+  }
+
+  .billing-entry-table tr.billing-entry-row {
+    display: none !important;
+  }
+
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.9rem;
+    border: 1px solid rgb(226 232 240);
+    border-radius: 0.9rem;
+    background: #fff;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  }
+
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current td {
+    padding: 0 !important;
+    border: 0 !important;
+    min-width: 0;
+  }
+
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current .billing-item-index {
+    display: none !important;
+  }
+
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current .billing-item-description {
+    grid-column: 1 / -1;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    padding-bottom: 0.5rem !important;
+    border-bottom: 1px solid rgb(241 245 249) !important;
+  }
+
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current .billing-entry-field {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.35rem;
+    text-align: left !important;
+  }
+
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current .billing-mobile-field-label {
+    display: block;
+  }
+
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current .billing-entry-field input {
+    width: 100%;
+    min-height: 46px !important;
+  }
+
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current .billing-amount-cell {
+    grid-column: 1 / -1;
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.7rem 0.8rem !important;
+    border-radius: 0.65rem !important;
+    background: rgb(248 250 252);
+  }
+}
+
+@media (max-width: 479px) {
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current {
+    grid-template-columns: 1fr;
+  }
+
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current .billing-item-description,
+  .billing-entry-table tr.billing-entry-row.billing-mobile-current .billing-amount-cell {
+    grid-column: 1;
+  }
+}
+

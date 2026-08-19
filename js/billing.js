@@ -78,7 +78,12 @@ const els = {
   previewTotal: $('previewTotal'),
   previewAdvance: $('previewAdvance'),
   previewBalance: $('previewBalance'),
+
+  itemSelect: $('billingItemSelect'),
+  selectedItemsSummary: $('billingSelectedItemsSummary'),
 };
+
+const compactBillingQuery = window.matchMedia('(max-width: 1023px)');
 
 function todayISO() {
   const now = new Date();
@@ -175,6 +180,107 @@ function createItemRows() {
     input.addEventListener('input', updateFormTotals);
   });
 }
+function getBillingItemRows() {
+  return els.itemsBody ? [...els.itemsBody.querySelectorAll('tr.billing-entry-row')] : [];
+}
+
+function billingRowIsActive(row) {
+  const qty = Number(row.querySelector('.billing-qty')?.value || 0);
+  const price = Number(row.querySelector('.billing-price')?.value || 0);
+  return qty > 0 || price > 0;
+}
+
+function getBillingRowLabel(row) {
+  return row.querySelector('.billing-item-name')?.textContent?.trim() || row.dataset.itemKey || '';
+}
+
+function populateBillingItemSelect() {
+  if (!els.itemSelect) return;
+
+  const previous = els.itemSelect.value;
+  els.itemSelect.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = t('billingSelectItemPlaceholder');
+  els.itemSelect.appendChild(placeholder);
+
+  getBillingItemRows().forEach((row) => {
+    const option = document.createElement('option');
+    option.value = row.dataset.itemKey || '';
+    option.textContent = getBillingRowLabel(row);
+    els.itemSelect.appendChild(option);
+  });
+
+  if (previous && getBillingItemRows().some((row) => row.dataset.itemKey === previous)) {
+    els.itemSelect.value = previous;
+  }
+}
+
+function showBillingItem(key, focus = false) {
+  const rows = getBillingItemRows();
+  rows.forEach((row) => {
+    const isCurrent = compactBillingQuery.matches && Boolean(key) && row.dataset.itemKey === key;
+    row.classList.toggle('billing-mobile-current', isCurrent);
+  });
+
+  if (els.itemSelect) els.itemSelect.value = key || '';
+
+  if (focus && key) {
+    rows.find((row) => row.dataset.itemKey === key)
+      ?.querySelector('.billing-qty')
+      ?.focus({ preventScroll: true });
+  }
+}
+
+function renderSelectedBillingItems() {
+  if (!els.selectedItemsSummary) return;
+
+  const activeRows = getBillingItemRows().filter(billingRowIsActive);
+  if (!activeRows.length) {
+    els.selectedItemsSummary.innerHTML = `<span class="billing-selected-empty">${escapeHtml(t('billingNoSelectedItems'))}</span>`;
+    return;
+  }
+
+  els.selectedItemsSummary.innerHTML = activeRows.map((row) => {
+    const key = row.dataset.itemKey || '';
+    const name = getBillingRowLabel(row);
+    const qty = Number(row.querySelector('.billing-qty')?.value || 0);
+    const price = Number(row.querySelector('.billing-price')?.value || 0);
+    const amount = qty * price;
+
+    return `
+      <button type="button" class="billing-selected-item-chip" data-picker-item="${escapeHtml(key)}" title="${escapeHtml(name)}">
+        <span>${escapeHtml(name)}</span>
+        <span>× ${escapeHtml(String(qty || 0))}</span>
+        <span>Rs. ${formatMoney(amount)}</span>
+      </button>`;
+  }).join('');
+}
+
+function refreshBillingItemPicker(selectFirstActive = false) {
+  populateBillingItemSelect();
+  renderSelectedBillingItems();
+
+  if (!compactBillingQuery.matches) {
+    showBillingItem('');
+    return;
+  }
+
+  const current = els.itemSelect?.value || '';
+  if (current && !selectFirstActive) {
+    showBillingItem(current);
+    return;
+  }
+
+  if (selectFirstActive) {
+    const firstActive = getBillingItemRows().find(billingRowIsActive);
+    showBillingItem(firstActive?.dataset.itemKey || '');
+  } else {
+    showBillingItem('');
+  }
+}
+
 function getFormItems() {
   return [...els.itemsBody.querySelectorAll('tr')].map((row) => {
     const key = row.dataset.itemKey;
@@ -215,6 +321,7 @@ function updateFormTotals() {
   els.formTotal.textContent = `Rs. ${formatMoney(totals.total)}`;
   els.formAdvance.textContent = `Rs. ${formatMoney(totals.advance)}`;
   els.formBalance.textContent = `Rs. ${formatMoney(totals.balance)}`;
+  renderSelectedBillingItems();
 }
 
 function collectFormBill() {
@@ -331,6 +438,7 @@ function resetForm() {
   els.savePreviewBtn.textContent = t('billingSavePreview');
   els.saveBtn.textContent = t('billingSave');
   updateFormTotals();
+  refreshBillingItemPicker(false);
 }
 
 function fillForm(bill) {
@@ -356,6 +464,7 @@ function fillForm(bill) {
   els.savePreviewBtn.textContent = t('billingUpdatePreview');
   els.saveBtn.textContent = t('billingUpdate');
   updateFormTotals();
+  refreshBillingItemPicker(true);
 
   document.getElementById('billingFormSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   window.setTimeout(() => els.billNo.focus({ preventScroll: true }), 250);
@@ -599,7 +708,17 @@ async function downloadPreviewPdf() {
     pdf.addImage(image, 'JPEG', 0, 0, 148, 210);
 
     const safeNo = String(currentPreviewBill.billNo || 'bill').replace(/[^a-z0-9_-]+/gi, '-');
-    pdf.save(`madhusanka-tailors-bill-${safeNo}.pdf`);
+    const fileName = `madhusanka-tailors-bill-${safeNo}.pdf`;
+    const pdfBlob = pdf.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.rel = 'noopener';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     showToast(t('billingToastPdf'), 'success');
   } catch (error) {
     console.error(error);
@@ -655,6 +774,8 @@ function renderItemLanguage() {
     if (labels[1]) labels[1].textContent = t('billingUnitPrice');
     if (labels[2]) labels[2].textContent = t('billingAmount');
   });
+
+  refreshBillingItemPicker(false);
 
   if (currentPreviewBill) {
     renderPreview(currentPreviewBill);
@@ -725,6 +846,16 @@ function initEvents() {
 
   els.advance.addEventListener('input', updateFormTotals);
   els.search.addEventListener('input', renderSavedBills);
+
+  els.itemSelect?.addEventListener('change', () => {
+    showBillingItem(els.itemSelect.value, true);
+  });
+
+  els.selectedItemsSummary?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-picker-item]');
+    if (!button) return;
+    showBillingItem(button.dataset.pickerItem || '', true);
+  });
   els.savedBody.addEventListener('click', handleSavedActions);
   els.savedCards?.addEventListener('click', handleSavedActions);
   els.previewModal.addEventListener('click', handleSavedActions);
@@ -758,6 +889,13 @@ function initEvents() {
 
   window.addEventListener('resize', handlePreviewResize, { passive: true });
   window.addEventListener('orientationchange', handlePreviewResize, { passive: true });
+
+  const handleCompactBillingChange = () => refreshBillingItemPicker(false);
+  if (typeof compactBillingQuery.addEventListener === 'function') {
+    compactBillingQuery.addEventListener('change', handleCompactBillingChange);
+  } else if (typeof compactBillingQuery.addListener === 'function') {
+    compactBillingQuery.addListener(handleCompactBillingChange);
+  }
 
   window.addEventListener('localechange', () => {
     setSyncState(syncState);
