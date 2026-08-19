@@ -91,7 +91,7 @@
         <p id="billingStatTotal" class="mt-1 text-xl sm:text-2xl font-bold text-emerald-800">Rs. 0.00</p>
       </div>
       <div class="billing-stat-card bg-amber-50 rounded-xl shadow-sm border border-amber-200 p-4">
-        <p class="text-[10px] sm:text-xs font-medium text-amber-700 uppercase tracking-wide" data-i18n="billingStatAdvance">Total Advance</p>
+        <p class="text-[10px] sm:text-xs font-medium text-amber-700 uppercase tracking-wide" data-i18n="billingStatAdvance">Total Received</p>
         <p id="billingStatAdvance" class="mt-1 text-xl sm:text-2xl font-bold text-amber-800">Rs. 0.00</p>
       </div>
       <div class="billing-stat-card bg-violet-50 rounded-xl shadow-sm border border-violet-200 p-4">
@@ -157,9 +157,20 @@
           </div>
 
           <div>
-            <label for="billAdvance" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingAdvance">Advance Amount (Rs.)</label>
+            <label for="billingPaymentType" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingPaymentStatus">Payment Status</label>
+            <select id="billingPaymentType"
+                    class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+              <option value="unpaid" data-i18n="billingPaymentUnpaid">Not Paid</option>
+              <option value="advance" data-i18n="billingPaymentAdvance">Advance / Part Paid</option>
+              <option value="full" data-i18n="billingPaymentFull">Paid in Full</option>
+            </select>
+          </div>
+
+          <div id="billingPaidAmountWrap" class="hidden">
+            <label for="billAdvance" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingPaidAmount">Paid Amount (Rs.)</label>
             <input id="billAdvance" type="number" min="0" step="0.01" value="" placeholder="0.00"
                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+            <p id="billingPaymentHint" class="mt-1 text-[11px] text-slate-500"></p>
           </div>
         </div>
 
@@ -207,7 +218,7 @@
               <p id="billingFormTotal" class="text-lg font-bold text-slate-900 mt-1">Rs. 0.00</p>
             </div>
             <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-              <p class="text-xs text-slate-500" data-i18n="billingAdvanceShort">Advance</p>
+              <p class="text-xs text-slate-500" data-i18n="billingPaidShort">Paid Amount</p>
               <p id="billingFormAdvance" class="text-lg font-bold text-slate-900 mt-1">Rs. 0.00</p>
             </div>
             <div class="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3">
@@ -354,7 +365,8 @@
             </div>
             <div class="billing-paper-summary">
               <div><span data-i18n="billingTotalShort">Total</span><strong id="previewTotal">0.00</strong></div>
-              <div><span data-i18n="billingAdvanceShort">Advance</span><strong id="previewAdvance">0.00</strong></div>
+              <div><span data-i18n="billingPaidShort">Paid</span><strong id="previewAdvance">0.00</strong></div>
+              <div><span data-i18n="billingPaymentStatus">Payment Status</span><strong id="previewPaymentStatus">Not Paid</strong></div>
               <div class="billing-paper-balance"><span data-i18n="billingBalance">Balance</span><strong id="previewBalance">0.00</strong></div>
             </div>
           </section>

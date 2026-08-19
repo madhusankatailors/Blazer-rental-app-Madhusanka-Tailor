@@ -1137,6 +1137,10 @@ html[lang="si"] .billing-paper-brand h1 {
     background: rgb(248 250 252);
   }
 
+  .billing-saved-card-money > div:last-child {
+    grid-column: 1 / -1;
+  }
+
   .billing-saved-card-money span {
     display: block;
     color: rgb(100 116 139);
