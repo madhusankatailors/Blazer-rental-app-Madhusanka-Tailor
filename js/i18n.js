@@ -78,7 +78,7 @@ const translations = {
     statusPending: 'Pending',
     statusReturned: 'Returned',
     btnSaveBooking: 'Save Booking',
-    btnNewBooking: 'New Booking',
+    btnNewBooking: 'New Booking Blazer',
     btnAddBlazer: 'Add Blazer',
     btnRemoveBlazer: 'Remove blazer',
     btnUpdateBooking: 'Update Booking',
@@ -195,6 +195,76 @@ const translations = {
     detailModalLabel: 'Booking Details',
     detailBlazerNumber: 'Blazer {number}',
     emptyBlazers: 'No blazers listed.',
+    btnBilling: '+ Billing',
+    billingPageTitle: 'Billing | Madhusanka Tailors',
+    billingAppTitle: 'Digital Billing',
+    billingBackRentals: 'Rental Management',
+    billingStatBills: 'Saved Bills',
+    billingStatTotal: 'Total Billed',
+    billingStatAdvance: 'Total Advance',
+    billingStatBalance: 'Outstanding Balance',
+    billingNewBill: 'New Bill',
+    billingEditBill: 'Edit Bill {number}',
+    billingFormHint: 'Enter the bill details. Bill number is entered manually.',
+    billingClearForm: 'Clear Form',
+    billingBillNo: 'Bill No.',
+    billingBillNoPlaceholder: 'Enter bill number',
+    billingBillDate: 'Bill Date',
+    billingCustomerName: 'Customer Name',
+    billingCustomerPlaceholder: 'Enter customer name',
+    billingTelephone: 'Telephone No.',
+    billingReceivedDate: 'Received Date',
+    billingDeliveryDate: 'Delivery / Return Date',
+    billingAdvance: 'Advance Amount (Rs.)',
+    billingItems: 'Bill Items',
+    billingItemsHint: 'Qty and unit price start blank. Fill only the required items.',
+    billingItem: 'Item',
+    billingQty: 'Qty',
+    billingUnitPrice: 'Unit Price (Rs.)',
+    billingAmount: 'Amount (Rs.)',
+    billingTotal: 'Total Amount',
+    billingAdvanceShort: 'Advance',
+    billingBalance: 'Balance',
+    billingSave: 'Save Bill',
+    billingSavePreview: 'Save & Preview',
+    billingUpdate: 'Update Bill',
+    billingUpdatePreview: 'Update & Preview',
+    billingSavedBills: 'Saved Bills',
+    billingSavedHint: 'Cloud-synced bills can be previewed, edited, downloaded, or deleted.',
+    billingSearchPlaceholder: 'Search bill no, customer, phone...',
+    billingEmpty: 'No saved bills yet.',
+    billingEmptyHint: 'Create your first bill using the form above.',
+    billingActions: 'Actions',
+    billingPreview: 'Preview',
+    billingClose: 'Close',
+    billingPrint: 'Print',
+    billingDownloadPdf: 'Download PDF',
+    billingPreparingPdf: 'Preparing PDF...',
+    billingBrandName: 'MADHUSANKA TAILORS',
+    billingAddress: 'No.29, Super Market Lane, Dankotuwa.',
+    billingTelShort: 'Tel',
+    billingMobileShort: 'Mobile',
+    billingNameShort: 'Name',
+    billingTelephoneShort: 'Telephone',
+    billingNoShort: 'No.',
+    billingDateShort: 'Date',
+    billingDescription: 'Description',
+    billingRsShort: 'Rs.',
+    billingCtsShort: 'Cts.',
+    billingTotalShort: 'Total',
+    billingTerms: 'Wedding garments must be returned on the agreed date. Damage or loss will be charged according to the amount determined by the establishment. Late returns are subject to a Rs. 200/- charge per day.',
+    billingCustomerSignature: 'Customer Signature',
+    billingAuthorizedSignature: 'Authorized Signature',
+    billingErrorBillNo: 'Please enter the bill number.',
+    billingErrorCustomer: 'Please enter the customer name.',
+    billingErrorItem: 'Please enter a quantity for at least one bill item.',
+    billingErrorAdvance: 'Advance amount cannot be greater than the total amount.',
+    billingErrorDuplicate: 'Bill number {number} is already used.',
+    billingToastSaved: 'Bill saved successfully.',
+    billingToastDeleted: 'Bill deleted successfully.',
+    billingToastPdf: 'Bill PDF downloaded successfully.',
+    billingConfirmDelete: 'Delete bill {number}?',
+    billingConfirmClear: 'Clear the current bill form?',
     loginPageTitle: 'Login | Madhusanka Tailors',
   },
   si: {
@@ -273,7 +343,7 @@ const translations = {
     statusPending: 'අපේක්ෂා කරමින්',
     statusReturned: 'ආපසු ලබා දුන්',
     btnSaveBooking: 'වෙන්කිරීම සුරකින්න',
-    btnNewBooking: 'නව වෙන්කිරීම',
+    btnNewBooking: 'නව වෙන්කිරීම බ්ලේසර්',
     btnAddBlazer: 'බ්ලේසර් එකතු කරන්න',
     btnRemoveBlazer: 'බ්ලේසර් ඉවත් කරන්න',
     btnUpdateBooking: 'වෙන්කිරීම යාවත්කාලීන කරන්න',
@@ -390,6 +460,76 @@ const translations = {
     detailModalLabel: 'වෙන්කිරීම් විස්තර',
     detailBlazerNumber: 'බ්ලේසර් {number}',
     emptyBlazers: 'බ්ලේසර් ලැයිස්තුගත කර නැත.',
+    btnBilling: '+ බිල්',
+    billingPageTitle: 'බිල් පද්ධතිය | මධුසංක ටේලර්ස්',
+    billingAppTitle: 'ඩිජිටල් බිල් පද්ධතිය',
+    billingBackRentals: 'බ්ලේසර් කුලී කළමනාකරණය',
+    billingStatBills: 'සුරකින ලද බිල්',
+    billingStatTotal: 'මුළු බිල් මුදල',
+    billingStatAdvance: 'මුළු අත්තිකාරම්',
+    billingStatBalance: 'ගෙවීමට ඇති ශේෂය',
+    billingNewBill: 'නව බිල',
+    billingEditBill: 'බිල් අංක {number} සංස්කරණය',
+    billingFormHint: 'බිල් විස්තර ඇතුළත් කරන්න. බිල් අංකය ඔබ විසින්ම ඇතුළත් කළ යුතුය.',
+    billingClearForm: 'පෝරමය හිස් කරන්න',
+    billingBillNo: 'බිල් අංකය',
+    billingBillNoPlaceholder: 'බිල් අංකය ඇතුළත් කරන්න',
+    billingBillDate: 'බිල් දිනය',
+    billingCustomerName: 'පාරිභෝගික නම',
+    billingCustomerPlaceholder: 'පාරිභෝගික නම ඇතුළත් කරන්න',
+    billingTelephone: 'දුරකථන අංකය',
+    billingReceivedDate: 'ලබාගත් දිනය',
+    billingDeliveryDate: 'ආපසු භාර දිය යුතු දිනය',
+    billingAdvance: 'අත්තිකාරම් මුදල (රු.)',
+    billingItems: 'බිල් අයිතම',
+    billingItemsHint: 'ප්‍රමාණය සහ ඒකක මිල හිස්ව ආරම්භ වේ. අවශ්‍ය අයිතම පමණක් පුරවන්න.',
+    billingItem: 'අයිතමය',
+    billingQty: 'ප්‍රමාණය',
+    billingUnitPrice: 'ඒකක මිල (රු.)',
+    billingAmount: 'මුදල (රු.)',
+    billingTotal: 'මුළු මුදල',
+    billingAdvanceShort: 'අත්තිකාරම්',
+    billingBalance: 'ඉතිරි මුදල',
+    billingSave: 'බිල සුරකින්න',
+    billingSavePreview: 'සුරකින්න සහ පෙරදසුන බලන්න',
+    billingUpdate: 'බිල යාවත්කාලීන කරන්න',
+    billingUpdatePreview: 'යාවත්කාලීන කර පෙරදසුන බලන්න',
+    billingSavedBills: 'සුරකින ලද බිල්',
+    billingSavedHint: 'Cloud එකේ සුරකින බිල් පෙරදසුන්, සංස්කරණය, PDF බාගැනීම හෝ මකා දැමීම කළ හැක.',
+    billingSearchPlaceholder: 'බිල් අංකය, පාරිභෝගික නම, දුරකථනය සොයන්න...',
+    billingEmpty: 'තවම සුරකින ලද බිල් නොමැත.',
+    billingEmptyHint: 'ඉහත පෝරමය භාවිතයෙන් පළමු බිල සකස් කරන්න.',
+    billingActions: 'ක්‍රියා',
+    billingPreview: 'පෙරදසුන',
+    billingClose: 'වසන්න',
+    billingPrint: 'මුද්‍රණය',
+    billingDownloadPdf: 'PDF බාගන්න',
+    billingPreparingPdf: 'PDF සකස් කරමින්...',
+    billingBrandName: 'මධුසංක ටේලර්ස්',
+    billingAddress: 'නො.29, සුපර් මාකට් ලේන්, දන්කොටුව.',
+    billingTelShort: 'දුරකථන',
+    billingMobileShort: 'මොබයිල්',
+    billingNameShort: 'නම',
+    billingTelephoneShort: 'දුරකථන',
+    billingNoShort: 'අංකය',
+    billingDateShort: 'දිනය',
+    billingDescription: 'විස්තරය',
+    billingRsShort: 'රු.',
+    billingCtsShort: 'ශත',
+    billingTotalShort: 'මුළු මුදල',
+    billingTerms: 'ඔබ ලබාගන්නා මංගල ඇඳුම් නියමිත දිනට ආපසු භාර දිය යුතු අතර, කිසියම් පලුදු වීමක් හෝ අලාභහානියක් සිදු වූවහොත් ඒ සඳහා ආයතනය විසින් නියම කරනු ලබන ගෙවීම් සිදු කළ යුතුය. නියමිත දිනට ආපසු භාර නොදුනහොත් එක් දිනකට රු. 200/- බැගින් දඩ මුදලක් අය කෙරේ.',
+    billingCustomerSignature: 'පාරිභෝගික අත්සන',
+    billingAuthorizedSignature: 'බලයලත් අත්සන',
+    billingErrorBillNo: 'කරුණාකර බිල් අංකය ඇතුළත් කරන්න.',
+    billingErrorCustomer: 'කරුණාකර පාරිභෝගික නම ඇතුළත් කරන්න.',
+    billingErrorItem: 'කරුණාකර අවම වශයෙන් එක් අයිතමයක ප්‍රමාණයක් ඇතුළත් කරන්න.',
+    billingErrorAdvance: 'අත්තිකාරම් මුදල මුළු මුදලට වඩා වැඩි විය නොහැක.',
+    billingErrorDuplicate: 'බිල් අංක {number} දැනටමත් භාවිතා කර ඇත.',
+    billingToastSaved: 'බිල සාර්ථකව සුරකින ලදී.',
+    billingToastDeleted: 'බිල සාර්ථකව මකා දමන ලදී.',
+    billingToastPdf: 'බිල් PDF එක සාර්ථකව බාගත විය.',
+    billingConfirmDelete: 'බිල් අංක {number} මකා දමන්නද?',
+    billingConfirmClear: 'වත්මන් බිල් පෝරමය හිස් කරන්නද?',
     loginPageTitle: 'පිවිසීම | මධුසංක ටේලර්ස්',
   },
 };
@@ -417,12 +557,25 @@ function getLocale() {
   return currentLocale;
 }
 
+function updateDocumentTitle() {
+  const isLoginPage = document.getElementById('loginForm');
+  const isBillingPage = document.getElementById('billingApp');
+
+  if (isLoginPage) {
+    document.title = t('loginPageTitle');
+  } else if (isBillingPage) {
+    document.title = t('billingPageTitle');
+  } else {
+    document.title = t('pageTitle');
+  }
+}
+
 function setLocale(locale) {
   if (!translations[locale]) return;
   currentLocale = locale;
   localStorage.setItem(LOCALE_KEY, locale);
   document.documentElement.lang = locale === 'si' ? 'si' : 'en';
-  document.title = t('pageTitle');
+  updateDocumentTitle();
   applyI18n();
   updateLangButtons();
   window.dispatchEvent(new CustomEvent('localechange'));
@@ -488,9 +641,8 @@ function updateLangButtons() {
 }
 
 function initI18n() {
-  const isLoginPage = document.getElementById('loginForm');
   document.documentElement.lang = currentLocale === 'si' ? 'si' : 'en';
-  document.title = isLoginPage ? t('loginPageTitle') : t('pageTitle');
+  updateDocumentTitle();
   applyI18n();
   updateLangButtons();
 

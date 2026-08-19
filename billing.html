@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <base href="./">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Billing | Madhusanka Tailors</title>
+
+  <script>
+    const hostname = window.location.hostname;
+    const isLocalDevelopment = hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '[::1]'
+      || hostname.endsWith('.local')
+      || /^(10|192\.168)\./.test(hostname)
+      || (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname));
+    if (window.location.protocol === 'http:' && !isLocalDevelopment) {
+      window.location.replace(`https://${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`);
+    }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          screens: { xs: '480px' },
+          colors: {
+            brand: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 800: '#075985' }
+          }
+        }
+      }
+    };
+  </script>
+
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+
+<body id="billingApp" class="bg-slate-50 text-slate-800 min-h-screen">
+  <div id="toastContainer" class="fixed bottom-4 left-4 right-4 z-[90] flex flex-col items-stretch gap-2 pointer-events-none sm:left-auto sm:right-4 sm:w-[22rem]"></div>
+
+  <div id="billingLoading" class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-50">
+    <div class="text-center px-4">
+      <div class="inline-block h-10 w-10 animate-spin rounded-full border-4 border-brand-100 border-t-brand-600"></div>
+      <p class="mt-4 text-sm text-slate-600" data-i18n="syncLoading">Loading data...</p>
+    </div>
+  </div>
+
+  <header class="bg-brand-800 text-white shadow-lg safe-x">
+    <div class="max-w-7xl mx-auto px-3 py-3 sm:py-4 sm:px-4 lg:px-6">
+      <div class="billing-header-main flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-3 min-w-0">
+          <img src="assets/madhusanka-logo.png" alt="Madhusanka Tailors" class="h-14 w-16 object-contain shrink-0" />
+          <div class="min-w-0">
+            <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight leading-tight" data-i18n="billingAppTitle">Digital Billing</h1>
+            <p class="text-brand-100 text-xs sm:text-sm mt-1" data-i18n="businessName">Madhusanka Tailors</p>
+          </div>
+        </div>
+
+        <div class="billing-header-actions flex flex-wrap items-center gap-2">
+          <a href="index.html"
+             class="billing-rental-link px-3 py-2 rounded-lg text-xs font-semibold bg-white text-brand-800 hover:bg-brand-50 transition-colors"
+             data-i18n="billingBackRentals">Rental Management</a>
+
+          <div class="billing-lang-switch inline-flex rounded-lg bg-brand-900/40 p-1 gap-1" role="group" aria-label="Language">
+            <button type="button" id="langEn" data-i18n="langEnglish">English</button>
+            <button type="button" id="langSi" data-i18n="langSinhala">සිංහල</button>
+          </div>
+
+          <button type="button" id="billingLogoutBtn"
+                  class="billing-logout-btn px-3 py-2 rounded-lg text-xs font-semibold bg-brand-900/40 text-brand-100 hover:text-white hover:bg-brand-700 transition-colors"
+                  data-i18n="btnLogout">Logout</button>
+        </div>
+      </div>
+
+      <div class="mt-2 flex justify-end">
+        <p id="billingSyncStatus" class="text-brand-100 text-[10px] sm:text-xs font-medium"></p>
+      </div>
+    </div>
+  </header>
+
+  <main class="billing-main max-w-7xl mx-auto px-3 py-4 sm:px-4 lg:px-6 space-y-4 safe-x">
+    <!-- Stats -->
+    <section class="billing-stat-grid grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      <div class="billing-stat-card bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <p class="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide" data-i18n="billingStatBills">Saved Bills</p>
+        <p id="billingStatCount" class="mt-1 text-2xl font-bold text-slate-900">0</p>
+      </div>
+      <div class="billing-stat-card bg-emerald-50 rounded-xl shadow-sm border border-emerald-200 p-4">
+        <p class="text-[10px] sm:text-xs font-medium text-emerald-700 uppercase tracking-wide" data-i18n="billingStatTotal">Total Billed</p>
+        <p id="billingStatTotal" class="mt-1 text-xl sm:text-2xl font-bold text-emerald-800">Rs. 0.00</p>
+      </div>
+      <div class="billing-stat-card bg-amber-50 rounded-xl shadow-sm border border-amber-200 p-4">
+        <p class="text-[10px] sm:text-xs font-medium text-amber-700 uppercase tracking-wide" data-i18n="billingStatAdvance">Total Advance</p>
+        <p id="billingStatAdvance" class="mt-1 text-xl sm:text-2xl font-bold text-amber-800">Rs. 0.00</p>
+      </div>
+      <div class="billing-stat-card bg-violet-50 rounded-xl shadow-sm border border-violet-200 p-4">
+        <p class="text-[10px] sm:text-xs font-medium text-violet-700 uppercase tracking-wide" data-i18n="billingStatBalance">Outstanding Balance</p>
+        <p id="billingStatBalance" class="mt-1 text-xl sm:text-2xl font-bold text-violet-800">Rs. 0.00</p>
+      </div>
+    </section>
+
+    <!-- Bill form -->
+    <section id="billingFormSection" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-4 py-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 id="billingFormTitle" class="text-lg font-semibold text-slate-900" data-i18n="billingNewBill">New Bill</h2>
+          <p class="text-sm text-slate-500 mt-0.5" data-i18n="billingFormHint">Enter the bill details. Bill number is entered manually.</p>
+        </div>
+
+        <button id="billingClearBtn" type="button"
+                class="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50"
+                data-i18n="billingClearForm">Clear Form</button>
+      </div>
+
+      <form id="billingForm" class="p-4">
+        <input type="hidden" id="billingEditId" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label for="billNo" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingBillNo">Bill No.</label>
+            <input id="billNo" type="text" required
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                   data-i18n-placeholder="billingBillNoPlaceholder" placeholder="Enter bill number" />
+          </div>
+
+          <div>
+            <label for="billDate" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingBillDate">Bill Date</label>
+            <input id="billDate" type="date" required
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+          </div>
+
+          <div class="sm:col-span-2">
+            <label for="billCustomerName" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingCustomerName">Customer Name</label>
+            <input id="billCustomerName" type="text" required
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                   data-i18n-placeholder="billingCustomerPlaceholder" placeholder="Enter customer name" />
+          </div>
+
+          <div>
+            <label for="billPhone" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingTelephone">Telephone No.</label>
+            <input id="billPhone" type="tel"
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                   placeholder="07X XXX XXXX" />
+          </div>
+
+          <div>
+            <label for="billReceivedDate" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingReceivedDate">Received Date</label>
+            <input id="billReceivedDate" type="date"
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+          </div>
+
+          <div>
+            <label for="billDeliveryDate" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingDeliveryDate">Delivery / Return Date</label>
+            <input id="billDeliveryDate" type="date"
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+          </div>
+
+          <div>
+            <label for="billAdvance" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingAdvance">Advance Amount (Rs.)</label>
+            <input id="billAdvance" type="number" min="0" step="0.01" value="" placeholder="0.00"
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-semibold text-slate-900" data-i18n="billingItems">Bill Items</h3>
+              <p class="text-xs text-slate-500" data-i18n="billingItemsHint">Qty and unit price start blank. Fill only the required items.</p>
+            </div>
+          </div>
+
+          <div class="billing-entry-wrap rounded-xl border border-slate-200">
+            <table class="w-full text-sm billing-entry-table">
+              <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+                <tr>
+                  <th class="px-3 py-3 text-left w-12">#</th>
+                  <th class="px-3 py-3 text-left" data-i18n="billingItem">Item</th>
+                  <th class="px-3 py-3 text-left w-28" data-i18n="billingQty">Qty</th>
+                  <th class="px-3 py-3 text-left w-40" data-i18n="billingUnitPrice">Unit Price (Rs.)</th>
+                  <th class="px-3 py-3 text-right w-40" data-i18n="billingAmount">Amount (Rs.)</th>
+                </tr>
+              </thead>
+              <tbody id="billingItemsBody" class="divide-y divide-slate-200 bg-white"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="mt-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-end border-t border-slate-200 pt-5">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p class="text-xs text-slate-500" data-i18n="billingTotal">Total Amount</p>
+              <p id="billingFormTotal" class="text-lg font-bold text-slate-900 mt-1">Rs. 0.00</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p class="text-xs text-slate-500" data-i18n="billingAdvanceShort">Advance</p>
+              <p id="billingFormAdvance" class="text-lg font-bold text-slate-900 mt-1">Rs. 0.00</p>
+            </div>
+            <div class="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3">
+              <p class="text-xs text-violet-600" data-i18n="billingBalance">Balance</p>
+              <p id="billingFormBalance" class="text-lg font-bold text-violet-800 mt-1">Rs. 0.00</p>
+            </div>
+          </div>
+
+          <div class="flex flex-col xs:flex-row gap-2 lg:justify-end">
+            <button id="billingSaveBtn" type="button"
+                    class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg border border-brand-300 bg-brand-50 text-brand-700 text-sm font-semibold hover:bg-brand-100"
+                    data-i18n="billingSave">Save Bill</button>
+            <button id="billingSavePreviewBtn" type="submit"
+                    class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700"
+                    data-i18n="billingSavePreview">Save & Preview</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- Saved bills -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-4 py-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900" data-i18n="billingSavedBills">Saved Bills</h2>
+          <p class="text-sm text-slate-500 mt-0.5" data-i18n="billingSavedHint">Cloud-synced bills can be previewed, edited, downloaded, or deleted.</p>
+        </div>
+
+        <div class="relative w-full sm:w-72">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input id="billingSearch" type="search"
+                 class="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                 data-i18n-placeholder="billingSearchPlaceholder" placeholder="Search bill no, customer, phone..." />
+        </div>
+      </div>
+
+      <div id="billingEmpty" class="px-6 py-12 text-center">
+        <p class="text-sm font-medium text-slate-600" data-i18n="billingEmpty">No saved bills yet.</p>
+        <p class="text-sm text-slate-400 mt-1" data-i18n="billingEmptyHint">Create your first bill using the form above.</p>
+      </div>
+
+      <div id="billingSavedCards" class="billing-saved-cards hidden"></div>
+
+      <div id="billingSavedWrap" class="billing-saved-table-wrap hidden overflow-x-auto">
+        <table class="w-full text-sm billing-saved-table">
+          <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+            <tr>
+              <th class="px-3 py-3 text-left" data-i18n="billingBillNo">Bill No.</th>
+              <th class="px-3 py-3 text-left" data-i18n="billingCustomerName">Customer Name</th>
+              <th class="px-3 py-3 text-left" data-i18n="billingBillDate">Bill Date</th>
+              <th class="px-3 py-3 text-right" data-i18n="billingTotal">Total Amount</th>
+              <th class="px-3 py-3 text-right" data-i18n="billingBalance">Balance</th>
+              <th class="px-3 py-3 text-right" data-i18n="billingActions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="billingSavedBody" class="divide-y divide-slate-200 bg-white"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Preview Modal -->
+  <div id="billingPreviewModal" class="billing-preview-modal hidden" aria-hidden="true">
+    <div class="billing-preview-backdrop" data-bill-action="close-preview"></div>
+
+    <div class="billing-preview-panel">
+      <div class="billing-preview-actions no-print">
+        <div class="flex gap-2 flex-wrap">
+          <button type="button" data-bill-action="close-preview"
+                  class="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+                  data-i18n="billingClose">Close</button>
+          <button id="billingPreviewEditBtn" type="button"
+                  class="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+                  data-i18n="btnEdit">Edit</button>
+        </div>
+
+        <div class="flex gap-2 flex-wrap justify-end">
+          <button id="billingPrintBtn" type="button"
+                  class="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+                  data-i18n="billingPrint">Print</button>
+          <button id="billingPdfBtn" type="button"
+                  class="px-3 py-2 rounded-lg bg-brand-600 text-white text-xs font-semibold"
+                  data-i18n="billingDownloadPdf">Download PDF</button>
+        </div>
+      </div>
+
+      <div id="billingPreviewScroll" class="billing-preview-scroll">
+        <div id="billingPaperStage" class="billing-paper-stage">
+          <article id="billingPaper" class="billing-paper">
+          <header class="billing-paper-header">
+            <div class="billing-paper-logo-wrap">
+              <img src="assets/madhusanka-logo.png" alt="Madhusanka Tailors" class="billing-paper-logo" />
+            </div>
+            <div class="billing-paper-brand">
+              <h1 data-i18n="billingBrandName">MADHUSANKA TAILORS</h1>
+              <p data-i18n="billingAddress">No.29, Super Market Lane, Dankotuwa.</p>
+              <p>
+                <span data-i18n="billingTelShort">Tel</span>: 031 490 3171
+                &nbsp; | &nbsp;
+                <span data-i18n="billingMobileShort">Mobile</span>: 077 860 1003
+              </p>
+            </div>
+          </header>
+
+          <div class="billing-paper-rule"></div>
+
+          <section class="billing-paper-meta">
+            <div class="billing-paper-meta-left">
+              <div><span data-i18n="billingNameShort">Name</span><strong id="previewCustomer">-</strong></div>
+              <div><span data-i18n="billingTelephoneShort">Telephone</span><strong id="previewPhone">-</strong></div>
+            </div>
+            <div class="billing-paper-meta-right">
+              <div><span data-i18n="billingNoShort">No.</span><strong id="previewBillNo">-</strong></div>
+              <div><span data-i18n="billingDateShort">Date</span><strong id="previewBillDate">-</strong></div>
+            </div>
+          </section>
+
+          <table class="billing-paper-table">
+            <colgroup>
+              <col style="width:10%">
+              <col style="width:48%">
+              <col style="width:12%">
+              <col style="width:22%">
+              <col style="width:8%">
+            </colgroup>
+            <thead>
+              <tr>
+                <th data-i18n="billingNoShort">No.</th>
+                <th data-i18n="billingDescription">Description</th>
+                <th data-i18n="billingQty">Qty</th>
+                <th data-i18n="billingRsShort">Rs.</th>
+                <th data-i18n="billingCtsShort">Cts.</th>
+              </tr>
+            </thead>
+            <tbody id="billingPreviewItems"></tbody>
+          </table>
+
+          <section class="billing-paper-bottom">
+            <div class="billing-paper-dates">
+              <div><span data-i18n="billingReceivedDate">Received Date</span><strong id="previewReceivedDate">-</strong></div>
+              <div><span data-i18n="billingDeliveryDate">Delivery / Return Date</span><strong id="previewDeliveryDate">-</strong></div>
+            </div>
+            <div class="billing-paper-summary">
+              <div><span data-i18n="billingTotalShort">Total</span><strong id="previewTotal">0.00</strong></div>
+              <div><span data-i18n="billingAdvanceShort">Advance</span><strong id="previewAdvance">0.00</strong></div>
+              <div class="billing-paper-balance"><span data-i18n="billingBalance">Balance</span><strong id="previewBalance">0.00</strong></div>
+            </div>
+          </section>
+
+          <footer class="billing-paper-footer">
+            <p data-i18n="billingTerms">
+              Wedding garments must be returned on the agreed date. Damage or loss will be charged according to the amount determined by the establishment. Late returns are subject to a Rs. 200/- charge per day.
+            </p>
+            <div class="billing-signatures">
+              <span data-i18n="billingCustomerSignature">Customer Signature</span>
+              <span data-i18n="billingAuthorizedSignature">Authorized Signature</span>
+            </div>
+          </footer>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/i18n.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script type="module" src="js/billing.js"></script>
+</body>
+</html>

@@ -9,5 +9,9 @@ service cloud.firestore {
     match /rentals/{document=**} {
       allow read, write: if signedIn();
     }
+
+    match /bills/{document=**} {
+      allow read, write: if signedIn();
+    }
   }
 }
