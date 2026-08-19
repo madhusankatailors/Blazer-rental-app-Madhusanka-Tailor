@@ -1,0 +1,813 @@
+import { requireAuth, logout } from './auth.js';
+import { subscribeBills, saveBills as persistBills } from './storage.js';
+
+const BILL_ITEMS = [
+  { key: 'coat', en: 'Coat', si: 'කෝට්' },
+  { key: 'long-trousers', en: 'Long Trousers', si: 'දිග කලිසම්' },
+  { key: 'short-trousers', en: 'Short Trousers', si: 'කොට කලිසම්' },
+  { key: 'long-sleeve-shirt', en: 'Long Sleeve Shirt', si: 'අත් දිග ෂර්ට්' },
+  { key: 'short-sleeve-shirt', en: 'Short Sleeve Shirt', si: 'අත් කොට ෂර්ට්' },
+  { key: 'waistcoat', en: 'Waistcoat', si: 'වෙස් කෝට්' },
+  { key: 'tassel', en: 'Tassel', si: 'ටසල්' },
+  { key: 'sarong', en: 'Sarong', si: 'සරම්' },
+  { key: 'national-suit', en: 'National Suit', si: 'නැෂනල්' },
+  { key: 'tie', en: 'Tie', si: 'ටයි' },
+  { key: 'bow', en: 'Bow', si: 'බෝ' },
+  { key: 'belt', en: 'Belt', si: 'බෙල්ට්' },
+  { key: 'mesh', en: 'Mesh', si: 'මේෂ්' },
+  { key: 'cufflinks-tie-pin', en: 'Cufflinks / Tie Pin', si: 'කෆ්ලින් / ටයි පින්' },
+  { key: 'shoes', en: 'Shoes', si: 'සපත්තු' },
+];
+
+let bills = [];
+let currentBillId = '';
+let currentPreviewBill = null;
+let pendingWrites = 0;
+let syncState = 'loading';
+
+const $ = (id) => document.getElementById(id);
+
+const els = {
+  loading: $('billingLoading'),
+  syncStatus: $('billingSyncStatus'),
+  logoutBtn: $('billingLogoutBtn'),
+
+  form: $('billingForm'),
+  formTitle: $('billingFormTitle'),
+  editId: $('billingEditId'),
+  billNo: $('billNo'),
+  billDate: $('billDate'),
+  customerName: $('billCustomerName'),
+  phone: $('billPhone'),
+  receivedDate: $('billReceivedDate'),
+  deliveryDate: $('billDeliveryDate'),
+  advance: $('billAdvance'),
+  itemsBody: $('billingItemsBody'),
+  formTotal: $('billingFormTotal'),
+  formAdvance: $('billingFormAdvance'),
+  formBalance: $('billingFormBalance'),
+  clearBtn: $('billingClearBtn'),
+  saveBtn: $('billingSaveBtn'),
+  savePreviewBtn: $('billingSavePreviewBtn'),
+
+  statCount: $('billingStatCount'),
+  statTotal: $('billingStatTotal'),
+  statAdvance: $('billingStatAdvance'),
+  statBalance: $('billingStatBalance'),
+
+  search: $('billingSearch'),
+  savedWrap: $('billingSavedWrap'),
+  savedCards: $('billingSavedCards'),
+  savedBody: $('billingSavedBody'),
+  empty: $('billingEmpty'),
+
+  previewModal: $('billingPreviewModal'),
+  previewEditBtn: $('billingPreviewEditBtn'),
+  printBtn: $('billingPrintBtn'),
+  pdfBtn: $('billingPdfBtn'),
+  paper: $('billingPaper'),
+  paperStage: $('billingPaperStage'),
+  previewScroll: $('billingPreviewScroll'),
+  previewItems: $('billingPreviewItems'),
+  previewCustomer: $('previewCustomer'),
+  previewPhone: $('previewPhone'),
+  previewBillNo: $('previewBillNo'),
+  previewBillDate: $('previewBillDate'),
+  previewReceivedDate: $('previewReceivedDate'),
+  previewDeliveryDate: $('previewDeliveryDate'),
+  previewTotal: $('previewTotal'),
+  previewAdvance: $('previewAdvance'),
+  previewBalance: $('previewBalance'),
+};
+
+function todayISO() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  const [year, month, day] = iso.split('-');
+  return year && month && day ? `${day}/${month}/${year}` : iso;
+}
+
+function formatMoney(value) {
+  return Number(value || 0).toLocaleString('en-LK', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function getLocaleSafe() {
+  return typeof getLocale === 'function' ? getLocale() : 'en';
+}
+
+function translateItem(item) {
+  return getLocaleSafe() === 'si'
+    ? (item.nameSi || BILL_ITEMS.find((entry) => entry.key === item.key)?.si || item.nameEn || '')
+    : (item.nameEn || BILL_ITEMS.find((entry) => entry.key === item.key)?.en || item.nameSi || '');
+}
+
+function showToast(message, type = 'success') {
+  const container = $('toastContainer');
+  if (!container || !message) return;
+
+  container.innerHTML = '';
+  const toast = document.createElement('div');
+  const tones = {
+    success: 'bg-emerald-600 border-emerald-500',
+    error: 'bg-red-600 border-red-500',
+    info: 'bg-brand-600 border-brand-500',
+  };
+
+  toast.className = `toast-item pointer-events-auto rounded-lg border px-3 py-2 text-xs sm:text-sm font-medium text-white shadow-lg ${tones[type] || tones.info}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  window.setTimeout(() => {
+    toast.classList.add('opacity-0', 'transition', 'duration-200');
+    window.setTimeout(() => toast.remove(), 200);
+  }, 2200);
+}
+
+function setSyncState(state) {
+  syncState = state;
+  if (!els.syncStatus) return;
+
+  const labels = {
+    loading: t('syncLoading'),
+    saving: t('syncSaving'),
+    saved: t('syncSaved'),
+    error: t('syncError'),
+  };
+
+  els.syncStatus.textContent = labels[state] || '';
+}
+
+function hideLoading() {
+  els.loading?.classList.add('hidden');
+}
+
+function createItemRows() {
+  els.itemsBody.innerHTML = BILL_ITEMS.map((item, index) => `
+    <tr data-item-key="${escapeHtml(item.key)}" class="billing-entry-row">
+      <td class="billing-item-index px-3 py-2 text-slate-500">${index + 1}</td>
+      <td class="billing-item-description px-3 py-2 font-medium text-slate-800 billing-item-name">${escapeHtml(getLocaleSafe() === 'si' ? item.si : item.en)}</td>
+      <td class="billing-entry-field billing-qty-cell px-3 py-2">
+        <span class="billing-mobile-field-label">${escapeHtml(t('billingQty'))}</span>
+        <input type="number" min="0" step="1" value="" placeholder="0"
+               class="billing-qty w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </td>
+      <td class="billing-entry-field billing-price-cell px-3 py-2">
+        <span class="billing-mobile-field-label">${escapeHtml(t('billingUnitPrice'))}</span>
+        <input type="number" min="0" step="0.01" value="" placeholder="0.00"
+               class="billing-price w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </td>
+      <td class="billing-entry-field billing-amount-cell px-3 py-2 text-right font-semibold text-slate-800">
+        <span class="billing-mobile-field-label">${escapeHtml(t('billingAmount'))}</span>
+        <span class="billing-row-amount">0.00</span>
+      </td>
+    </tr>
+  `).join('');
+
+  els.itemsBody.querySelectorAll('input').forEach((input) => {
+    input.addEventListener('input', updateFormTotals);
+  });
+}
+function getFormItems() {
+  return [...els.itemsBody.querySelectorAll('tr')].map((row) => {
+    const key = row.dataset.itemKey;
+    const itemDef = BILL_ITEMS.find((item) => item.key === key);
+    const qtyRaw = row.querySelector('.billing-qty')?.value.trim() || '';
+    const priceRaw = row.querySelector('.billing-price')?.value.trim() || '';
+
+    const qty = qtyRaw === '' ? 0 : Math.max(0, Number(qtyRaw) || 0);
+    const unitPrice = priceRaw === '' ? 0 : Math.max(0, Number(priceRaw) || 0);
+
+    return {
+      key,
+      nameEn: itemDef?.en || key,
+      nameSi: itemDef?.si || key,
+      qty,
+      unitPrice,
+      amount: qty * unitPrice,
+    };
+  });
+}
+
+function getTotals(items, advanceValue) {
+  const total = (items || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const advanceRaw = String(advanceValue ?? '').trim();
+  const advance = advanceRaw === '' ? 0 : Math.max(0, Number(advanceRaw) || 0);
+  const balance = Math.max(0, total - advance);
+  return { total, advance, balance };
+}
+
+function updateFormTotals() {
+  const items = getFormItems();
+
+  [...els.itemsBody.querySelectorAll('tr')].forEach((row, index) => {
+    row.querySelector('.billing-row-amount').textContent = formatMoney(items[index].amount);
+  });
+
+  const totals = getTotals(items, els.advance.value);
+  els.formTotal.textContent = `Rs. ${formatMoney(totals.total)}`;
+  els.formAdvance.textContent = `Rs. ${formatMoney(totals.advance)}`;
+  els.formBalance.textContent = `Rs. ${formatMoney(totals.balance)}`;
+}
+
+function collectFormBill() {
+  const items = getFormItems();
+  const totals = getTotals(items, els.advance.value);
+  const existing = bills.find((bill) => bill.id === currentBillId);
+
+  return {
+    id: currentBillId || `bill-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    billNo: els.billNo.value.trim(),
+    billDate: els.billDate.value,
+    customerName: els.customerName.value.trim(),
+    phone: els.phone.value.trim(),
+    receivedDate: els.receivedDate.value,
+    deliveryDate: els.deliveryDate.value,
+    items,
+    totalAmount: totals.total,
+    advanceAmount: totals.advance,
+    balanceAmount: totals.balance,
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function validateBill(bill) {
+  if (!bill.billNo) {
+    els.billNo.focus();
+    showToast(t('billingErrorBillNo'), 'error');
+    return false;
+  }
+
+  if (!bill.customerName) {
+    els.customerName.focus();
+    showToast(t('billingErrorCustomer'), 'error');
+    return false;
+  }
+
+  if (!bill.items.some((item) => item.qty > 0)) {
+    showToast(t('billingErrorItem'), 'error');
+    return false;
+  }
+
+  if (bill.advanceAmount > bill.totalAmount) {
+    els.advance.focus();
+    showToast(t('billingErrorAdvance'), 'error');
+    return false;
+  }
+
+  const duplicate = bills.find((item) => item.billNo.toLowerCase() === bill.billNo.toLowerCase() && item.id !== bill.id);
+  if (duplicate) {
+    els.billNo.focus();
+    showToast(t('billingErrorDuplicate', { number: bill.billNo }), 'error');
+    return false;
+  }
+
+  return true;
+}
+
+async function persistCurrentBills() {
+  setSyncState('saving');
+  pendingWrites += 1;
+  try {
+    await persistBills(bills);
+    setSyncState('saved');
+  } catch (error) {
+    console.error(error);
+    setSyncState('error');
+    throw error;
+  } finally {
+    pendingWrites = Math.max(0, pendingWrites - 1);
+  }
+}
+
+async function saveBill(bill) {
+  const previousBills = [...bills];
+  const index = bills.findIndex((item) => item.id === bill.id);
+
+  if (index >= 0) bills[index] = bill;
+  else bills.unshift(bill);
+
+  try {
+    await persistCurrentBills();
+    currentBillId = bill.id;
+    els.editId.value = bill.id;
+    showToast(t('billingToastSaved'), 'success');
+    renderAll();
+    return true;
+  } catch {
+    bills = previousBills;
+    renderAll();
+    showToast(t('toastSyncError'), 'error');
+    return false;
+  }
+}
+
+function resetForm() {
+  currentBillId = '';
+  els.editId.value = '';
+  els.form.reset();
+
+  // Manual Bill No. — intentionally blank.
+  els.billNo.value = '';
+  els.billDate.value = todayISO();
+  els.receivedDate.value = todayISO();
+  els.deliveryDate.value = '';
+  els.advance.value = '';
+
+  [...els.itemsBody.querySelectorAll('tr')].forEach((row) => {
+    row.querySelector('.billing-qty').value = '';
+    row.querySelector('.billing-price').value = '';
+  });
+
+  els.formTitle.textContent = t('billingNewBill');
+  els.savePreviewBtn.textContent = t('billingSavePreview');
+  els.saveBtn.textContent = t('billingSave');
+  updateFormTotals();
+}
+
+function fillForm(bill) {
+  currentBillId = bill.id;
+  els.editId.value = bill.id;
+
+  els.billNo.value = bill.billNo || '';
+  els.billDate.value = bill.billDate || todayISO();
+  els.customerName.value = bill.customerName || '';
+  els.phone.value = bill.phone || '';
+  els.receivedDate.value = bill.receivedDate || '';
+  els.deliveryDate.value = bill.deliveryDate || '';
+  els.advance.value = Number(bill.advanceAmount) > 0 ? bill.advanceAmount : '';
+
+  const byKey = new Map((bill.items || []).map((item) => [item.key, item]));
+  [...els.itemsBody.querySelectorAll('tr')].forEach((row) => {
+    const item = byKey.get(row.dataset.itemKey);
+    row.querySelector('.billing-qty').value = Number(item?.qty) > 0 ? item.qty : '';
+    row.querySelector('.billing-price').value = Number(item?.unitPrice) > 0 ? item.unitPrice : '';
+  });
+
+  els.formTitle.textContent = t('billingEditBill', { number: bill.billNo });
+  els.savePreviewBtn.textContent = t('billingUpdatePreview');
+  els.saveBtn.textContent = t('billingUpdate');
+  updateFormTotals();
+
+  document.getElementById('billingFormSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  window.setTimeout(() => els.billNo.focus({ preventScroll: true }), 250);
+}
+
+function renderStats() {
+  const totals = bills.reduce((acc, bill) => {
+    acc.total += Number(bill.totalAmount) || 0;
+    acc.advance += Number(bill.advanceAmount) || 0;
+    acc.balance += Number(bill.balanceAmount) || 0;
+    return acc;
+  }, { total: 0, advance: 0, balance: 0 });
+
+  els.statCount.textContent = bills.length;
+  els.statTotal.textContent = `Rs. ${formatMoney(totals.total)}`;
+  els.statAdvance.textContent = `Rs. ${formatMoney(totals.advance)}`;
+  els.statBalance.textContent = `Rs. ${formatMoney(totals.balance)}`;
+}
+
+function getFilteredBills() {
+  const query = (els.search.value || '').trim().toLowerCase();
+  const sorted = [...bills].sort((a, b) => {
+    const dateCompare = (b.billDate || '').localeCompare(a.billDate || '');
+    if (dateCompare !== 0) return dateCompare;
+    return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+  });
+
+  if (!query) return sorted;
+
+  return sorted.filter((bill) => {
+    return String(bill.billNo || '').toLowerCase().includes(query)
+      || String(bill.customerName || '').toLowerCase().includes(query)
+      || String(bill.phone || '').toLowerCase().includes(query);
+  });
+}
+
+function renderSavedBills() {
+  const filtered = getFilteredBills();
+  const hasBills = filtered.length > 0;
+
+  els.empty.classList.toggle('hidden', hasBills);
+  els.savedWrap.classList.toggle('hidden', !hasBills);
+  els.savedCards?.classList.toggle('hidden', !hasBills);
+
+  els.savedBody.innerHTML = filtered.map((bill) => `
+    <tr class="hover:bg-slate-50">
+      <td class="px-3 py-3 font-semibold text-slate-900">${escapeHtml(bill.billNo || '—')}</td>
+      <td class="px-3 py-3">${escapeHtml(bill.customerName || '—')}</td>
+      <td class="px-3 py-3 whitespace-nowrap">${formatDate(bill.billDate)}</td>
+      <td class="px-3 py-3 text-right whitespace-nowrap font-semibold">Rs. ${formatMoney(bill.totalAmount)}</td>
+      <td class="px-3 py-3 text-right whitespace-nowrap ${Number(bill.balanceAmount) > 0 ? 'text-violet-700 font-bold' : 'text-emerald-700 font-semibold'}">Rs. ${formatMoney(bill.balanceAmount)}</td>
+      <td class="px-3 py-3">
+        <div class="flex flex-wrap justify-end gap-1">
+          <button type="button" data-bill-action="preview" data-id="${escapeHtml(bill.id)}"
+                  class="px-2.5 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50">${escapeHtml(t('billingPreview'))}</button>
+          <button type="button" data-bill-action="edit" data-id="${escapeHtml(bill.id)}"
+                  class="px-2.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700">${escapeHtml(t('btnEdit'))}</button>
+          <button type="button" data-bill-action="pdf" data-id="${escapeHtml(bill.id)}"
+                  class="px-2.5 py-1.5 rounded-md bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700">PDF</button>
+          <button type="button" data-bill-action="delete" data-id="${escapeHtml(bill.id)}"
+                  class="px-2.5 py-1.5 rounded-md bg-red-600 text-white text-xs font-semibold hover:bg-red-700">${escapeHtml(t('btnDelete'))}</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  if (els.savedCards) {
+    els.savedCards.innerHTML = filtered.map((bill) => `
+      <article class="billing-saved-card">
+        <div class="billing-saved-card-head">
+          <div class="min-w-0">
+            <p class="billing-saved-card-label">${escapeHtml(t('billingBillNo'))}</p>
+            <p class="billing-saved-card-number">${escapeHtml(bill.billNo || '—')}</p>
+          </div>
+          <div class="billing-saved-card-date">${formatDate(bill.billDate)}</div>
+        </div>
+
+        <div class="billing-saved-card-customer">
+          <p class="billing-saved-card-label">${escapeHtml(t('billingCustomerName'))}</p>
+          <p class="font-semibold text-slate-900 break-words">${escapeHtml(bill.customerName || '—')}</p>
+          ${bill.phone ? `<p class="mt-1 text-xs text-slate-500 break-all">${escapeHtml(bill.phone)}</p>` : ''}
+        </div>
+
+        <div class="billing-saved-card-money">
+          <div>
+            <span>${escapeHtml(t('billingTotal'))}</span>
+            <strong>Rs. ${formatMoney(bill.totalAmount)}</strong>
+          </div>
+          <div class="${Number(bill.balanceAmount) > 0 ? 'billing-balance-due' : 'billing-balance-paid'}">
+            <span>${escapeHtml(t('billingBalance'))}</span>
+            <strong>Rs. ${formatMoney(bill.balanceAmount)}</strong>
+          </div>
+        </div>
+
+        <div class="billing-saved-card-actions">
+          <button type="button" data-bill-action="preview" data-id="${escapeHtml(bill.id)}"
+                  class="billing-mobile-action border border-slate-300 bg-white text-slate-700">${escapeHtml(t('billingPreview'))}</button>
+          <button type="button" data-bill-action="edit" data-id="${escapeHtml(bill.id)}"
+                  class="billing-mobile-action bg-brand-600 text-white">${escapeHtml(t('btnEdit'))}</button>
+          <button type="button" data-bill-action="pdf" data-id="${escapeHtml(bill.id)}"
+                  class="billing-mobile-action bg-violet-600 text-white">PDF</button>
+          <button type="button" data-bill-action="delete" data-id="${escapeHtml(bill.id)}"
+                  class="billing-mobile-action bg-red-600 text-white">${escapeHtml(t('btnDelete'))}</button>
+        </div>
+      </article>
+    `).join('');
+  }
+}
+function renderPreviewItems(bill) {
+  const active = (bill.items || []).filter((item) => Number(item.qty) > 0);
+  const rows = [...active];
+  const minRows = 8;
+
+  while (rows.length < minRows) rows.push({ blank: true });
+
+  els.previewItems.innerHTML = rows.map((item, index) => {
+    if (item.blank) {
+      return `<tr><td>${index + 1}</td><td>&nbsp;</td><td></td><td></td><td></td></tr>`;
+    }
+
+    const amount = Number(item.amount) || 0;
+    const [rs, cts] = amount.toFixed(2).split('.');
+
+    return `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(translateItem(item))}</td>
+        <td>${escapeHtml(String(item.qty))}</td>
+        <td>${Number(rs).toLocaleString('en-LK')}</td>
+        <td>${cts}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderPreview(bill) {
+  currentPreviewBill = bill;
+
+  els.previewCustomer.textContent = bill.customerName || '—';
+  els.previewPhone.textContent = bill.phone || '—';
+  els.previewBillNo.textContent = bill.billNo || '—';
+  els.previewBillDate.textContent = formatDate(bill.billDate);
+  els.previewReceivedDate.textContent = formatDate(bill.receivedDate);
+  els.previewDeliveryDate.textContent = formatDate(bill.deliveryDate);
+  els.previewTotal.textContent = formatMoney(bill.totalAmount);
+  els.previewAdvance.textContent = formatMoney(bill.advanceAmount);
+  els.previewBalance.textContent = formatMoney(bill.balanceAmount);
+  renderPreviewItems(bill);
+}
+
+function fitPreviewPaper() {
+  if (!els.paper || !els.paperStage || !els.previewScroll) return;
+  if (els.previewModal?.classList.contains('hidden')) return;
+
+  // Always measure the original A5 paper size, then scale only the on-screen
+  // preview. Printing and PDF export still use the real 148 mm × 210 mm size.
+  const oldTransform = els.paper.style.transform;
+  els.paper.style.transform = 'none';
+
+  const naturalWidth = els.paper.offsetWidth;
+  const naturalHeight = els.paper.offsetHeight;
+  const scrollStyle = window.getComputedStyle(els.previewScroll);
+  const horizontalPadding =
+    (parseFloat(scrollStyle.paddingLeft) || 0) +
+    (parseFloat(scrollStyle.paddingRight) || 0);
+  const availableWidth = Math.max(1, els.previewScroll.clientWidth - horizontalPadding - 2);
+  const scale = Math.min(1, availableWidth / naturalWidth);
+
+  if (!Number.isFinite(scale) || scale <= 0 || !naturalWidth || !naturalHeight) {
+    els.paper.style.transform = oldTransform || 'none';
+    return;
+  }
+
+  els.paper.style.transformOrigin = 'top left';
+  els.paper.style.transform = `scale(${scale})`;
+  els.paperStage.style.width = `${Math.ceil(naturalWidth * scale)}px`;
+  els.paperStage.style.height = `${Math.ceil(naturalHeight * scale)}px`;
+  els.paperStage.dataset.previewScale = String(scale);
+}
+
+function refreshPreviewFit() {
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(fitPreviewPaper);
+  });
+}
+
+function openPreview(bill) {
+  renderPreview(bill);
+  els.previewModal.classList.remove('hidden');
+  els.previewModal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('billing-modal-open');
+  refreshPreviewFit();
+}
+
+function closePreview() {
+  els.previewModal.classList.add('hidden');
+  els.previewModal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('billing-modal-open');
+}
+
+async function downloadPreviewPdf() {
+  if (!currentPreviewBill) return;
+
+  if (!window.html2canvas || !window.jspdf?.jsPDF) {
+    showToast(t('toastPdfUnavailable'), 'error');
+    return;
+  }
+
+  const oldText = els.pdfBtn.textContent;
+  els.pdfBtn.disabled = true;
+  els.pdfBtn.textContent = t('billingPreparingPdf');
+
+  const previousTransform = els.paper.style.transform;
+  const previousStageWidth = els.paperStage?.style.width || '';
+  const previousStageHeight = els.paperStage?.style.height || '';
+
+  try {
+    // Capture the true A5 paper, not the scaled mobile/tablet preview.
+    els.paper.style.transform = 'none';
+    if (els.paperStage) {
+      els.paperStage.style.width = `${els.paper.offsetWidth}px`;
+      els.paperStage.style.height = `${els.paper.offsetHeight}px`;
+    }
+
+    const canvas = await window.html2canvas(els.paper, {
+      scale: 2.4,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      scrollX: 0,
+      scrollY: 0,
+    });
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [148, 210],
+    });
+
+    const image = canvas.toDataURL('image/jpeg', 0.97);
+    pdf.addImage(image, 'JPEG', 0, 0, 148, 210);
+
+    const safeNo = String(currentPreviewBill.billNo || 'bill').replace(/[^a-z0-9_-]+/gi, '-');
+    pdf.save(`madhusanka-tailors-bill-${safeNo}.pdf`);
+    showToast(t('billingToastPdf'), 'success');
+  } catch (error) {
+    console.error(error);
+    showToast(t('toastPdfUnavailable'), 'error');
+  } finally {
+    els.paper.style.transform = previousTransform;
+    if (els.paperStage) {
+      els.paperStage.style.width = previousStageWidth;
+      els.paperStage.style.height = previousStageHeight;
+    }
+    refreshPreviewFit();
+    els.pdfBtn.disabled = false;
+    els.pdfBtn.textContent = oldText;
+  }
+}
+
+function printPreview() {
+  if (!currentPreviewBill) return;
+  window.print();
+}
+
+async function deleteBill(id) {
+  const bill = bills.find((item) => item.id === id);
+  if (!bill) return;
+
+  if (!window.confirm(t('billingConfirmDelete', { number: bill.billNo }))) return;
+
+  const previousBills = [...bills];
+  bills = bills.filter((item) => item.id !== id);
+
+  try {
+    await persistCurrentBills();
+    if (currentBillId === id) resetForm();
+    if (currentPreviewBill?.id === id) closePreview();
+    showToast(t('billingToastDeleted'), 'success');
+    renderAll();
+  } catch {
+    bills = previousBills;
+    renderAll();
+    showToast(t('toastSyncError'), 'error');
+  }
+}
+
+function renderItemLanguage() {
+  [...els.itemsBody.querySelectorAll('tr')].forEach((row) => {
+    const key = row.dataset.itemKey;
+    const item = BILL_ITEMS.find((entry) => entry.key === key);
+    const cell = row.querySelector('.billing-item-name');
+    if (item && cell) cell.textContent = getLocaleSafe() === 'si' ? item.si : item.en;
+
+    const labels = row.querySelectorAll('.billing-mobile-field-label');
+    if (labels[0]) labels[0].textContent = t('billingQty');
+    if (labels[1]) labels[1].textContent = t('billingUnitPrice');
+    if (labels[2]) labels[2].textContent = t('billingAmount');
+  });
+
+  if (currentPreviewBill) {
+    renderPreview(currentPreviewBill);
+    refreshPreviewFit();
+  }
+}
+
+function renderAll() {
+  renderStats();
+  renderSavedBills();
+  renderItemLanguage();
+}
+
+function escapeHtml(value) {
+  const div = document.createElement('div');
+  div.textContent = String(value ?? '');
+  return div.innerHTML;
+}
+
+function getBillById(id) {
+  return bills.find((bill) => bill.id === id);
+}
+
+async function handleSave(openAfterSave) {
+  const bill = collectFormBill();
+  if (!validateBill(bill)) return;
+
+  const saved = await saveBill(bill);
+  if (saved && openAfterSave) openPreview(bill);
+}
+
+function handleSavedActions(event) {
+  const button = event.target.closest('[data-bill-action]');
+  if (!button) return;
+
+  const action = button.dataset.billAction;
+
+  if (action === 'close-preview') {
+    closePreview();
+    return;
+  }
+
+  const id = button.dataset.id;
+  const bill = id ? getBillById(id) : null;
+
+  if (action === 'preview' && bill) openPreview(bill);
+  if (action === 'edit' && bill) {
+    closePreview();
+    fillForm(bill);
+  }
+  if (action === 'pdf' && bill) {
+    openPreview(bill);
+    requestAnimationFrame(() => window.setTimeout(downloadPreviewPdf, 120));
+  }
+  if (action === 'delete' && id) deleteBill(id);
+}
+
+function initEvents() {
+  els.form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    handleSave(true);
+  });
+
+  els.saveBtn.addEventListener('click', () => handleSave(false));
+  els.clearBtn.addEventListener('click', () => {
+    if (window.confirm(t('billingConfirmClear'))) resetForm();
+  });
+
+  els.advance.addEventListener('input', updateFormTotals);
+  els.search.addEventListener('input', renderSavedBills);
+  els.savedBody.addEventListener('click', handleSavedActions);
+  els.savedCards?.addEventListener('click', handleSavedActions);
+  els.previewModal.addEventListener('click', handleSavedActions);
+
+  els.previewEditBtn.addEventListener('click', () => {
+    if (!currentPreviewBill) return;
+    closePreview();
+    fillForm(currentPreviewBill);
+  });
+
+  els.printBtn.addEventListener('click', printPreview);
+  els.pdfBtn.addEventListener('click', downloadPreviewPdf);
+
+  els.logoutBtn.addEventListener('click', () => {
+    logout().catch(() => {
+      window.location.href = 'login.html';
+    });
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !els.previewModal.classList.contains('hidden')) closePreview();
+  });
+
+  let previewResizeTimer = null;
+  const handlePreviewResize = () => {
+    window.clearTimeout(previewResizeTimer);
+    previewResizeTimer = window.setTimeout(() => {
+      if (!els.previewModal.classList.contains('hidden')) refreshPreviewFit();
+    }, 80);
+  };
+
+  window.addEventListener('resize', handlePreviewResize, { passive: true });
+  window.addEventListener('orientationchange', handlePreviewResize, { passive: true });
+
+  window.addEventListener('localechange', () => {
+    setSyncState(syncState);
+    if (currentBillId) {
+      const bill = getBillById(currentBillId);
+      if (bill) els.formTitle.textContent = t('billingEditBill', { number: bill.billNo });
+    } else {
+      els.formTitle.textContent = t('billingNewBill');
+    }
+
+    els.savePreviewBtn.textContent = currentBillId ? t('billingUpdatePreview') : t('billingSavePreview');
+    els.saveBtn.textContent = currentBillId ? t('billingUpdate') : t('billingSave');
+
+    renderAll();
+  });
+}
+
+async function init() {
+  await requireAuth();
+
+  createItemRows();
+  resetForm();
+  initEvents();
+  setSyncState('loading');
+
+  subscribeBills(
+    (items) => {
+      bills = Array.isArray(items) ? items : [];
+      hideLoading();
+      setSyncState('saved');
+      renderAll();
+
+      if (currentPreviewBill) {
+        const fresh = bills.find((bill) => bill.id === currentPreviewBill.id);
+        if (fresh) renderPreview(fresh);
+      }
+    },
+    (error) => {
+      console.error(error);
+      hideLoading();
+      setSyncState('error');
+      showToast(t('toastSyncError'), 'error');
+    }
+  );
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  init().catch((error) => {
+    console.error(error);
+    hideLoading();
+    showToast(t('toastSyncError'), 'error');
+  });
+});

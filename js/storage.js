@@ -90,3 +90,62 @@ export function saveRentals(items) {
 
   return saveQueue;
 }
+
+
+// -----------------------------------------------------------------------------
+// DIGITAL BILL STORAGE
+// Bills use their own Firestore document so rental data and billing data remain
+// independent while still syncing through the same authenticated Firebase app.
+// -----------------------------------------------------------------------------
+
+const BILLS_COLLECTION = 'bills';
+const BILLS_DOC_ID = 'madhusanka_tailors';
+
+let billsUnsubscribe = null;
+let billSaveQueue = Promise.resolve();
+
+export function subscribeBills(onUpdate, onError) {
+  if (!isConfigured() || !db) {
+    onError?.(new Error('Firebase is not configured.'));
+    return () => {};
+  }
+
+  const ref = doc(db, BILLS_COLLECTION, BILLS_DOC_ID);
+
+  billsUnsubscribe = onSnapshot(
+    ref,
+    (snapshot) => {
+      const items = snapshot.exists() ? snapshot.data().items || [] : [];
+      onUpdate(Array.isArray(items) ? items : []);
+    },
+    (error) => onError?.(error)
+  );
+
+  return () => {
+    if (billsUnsubscribe) {
+      billsUnsubscribe();
+      billsUnsubscribe = null;
+    }
+  };
+}
+
+export function saveBills(items) {
+  if (!isConfigured() || !db) {
+    return Promise.reject(new Error('Firebase is not configured.'));
+  }
+
+  const ref = doc(db, BILLS_COLLECTION, BILLS_DOC_ID);
+
+  billSaveQueue = billSaveQueue.then(() =>
+    setDoc(
+      ref,
+      {
+        items,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    )
+  );
+
+  return billSaveQueue;
+}
