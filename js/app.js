@@ -22,6 +22,9 @@ const els = {
   editId: $('editId'),
   customerName: $('customerName'),
   phoneNumber: $('phoneNumber'),
+  phoneNumber2: $('phoneNumber2'),
+  phoneNumber2Toggle: $('phoneNumber2Toggle'),
+  phoneNumber2Wrap: $('phoneNumber2Wrap'),
   blazersList: $('blazersList'),
   addBlazerBtn: $('addBlazerBtn'),
   bookingDate: $('bookingDate'),
@@ -73,6 +76,11 @@ const els = {
   statOutstandingBalance: $('statOutstandingBalance'),
   analyticsDailySalesValue: $('analyticsDailySalesValue'),
   analyticsMonthlyRevenueValue: $('analyticsMonthlyRevenueValue'),
+  analyticsDailyCard: $('analyticsDailyCard'),
+  analyticsMonthlyCard: $('analyticsMonthlyCard'),
+  analyticsHistoryModal: $('analyticsHistoryModal'),
+  analyticsHistoryTitle: $('analyticsHistoryTitle'),
+  analyticsHistoryBody: $('analyticsHistoryBody'),
   analyticsTopColorsValue: $('analyticsTopColorsValue'),
   analyticsOverdueRateValue: $('analyticsOverdueRateValue'),
   syncStatus: $('syncStatus'),
@@ -276,6 +284,13 @@ function getPaymentType() {
   return 'full';
 }
 
+function setSecondPhoneVisible(visible) {
+  if (!els.phoneNumber2Wrap) return;
+  els.phoneNumber2Wrap.classList.toggle('hidden', !visible);
+  els.phoneNumber2Toggle?.setAttribute('aria-expanded', String(visible));
+  if (els.phoneNumber2Toggle) els.phoneNumber2Toggle.textContent = visible ? '−' : '+';
+}
+
 function setPaymentType(type) {
   document.querySelectorAll('input[name="paymentType"]').forEach((radio) => {
     radio.checked = radio.value === type;
@@ -438,6 +453,7 @@ function generateId() {
 function resetForm() {
   els.form.reset();
   els.editId.value = '';
+  setSecondPhoneVisible(false);
   returnDateManuallyEdited = false;
   els.bookingDate.value = todayISO();
   els.returnDate.value = '';
@@ -473,6 +489,7 @@ function getFormData() {
   return {
     customerName: els.customerName.value.trim(),
     phoneNumber: els.phoneNumber.value.trim(),
+    phoneNumber2: els.phoneNumber2.value.trim(),
     blazers: getBlazersFromForm(),
     bookingDate: els.bookingDate.value,
     pickupDate: els.pickupDate.value,
@@ -492,6 +509,8 @@ function populateForm(rental) {
   els.editId.value = normalized.id;
   els.customerName.value = normalized.customerName;
   els.phoneNumber.value = normalized.phoneNumber;
+  els.phoneNumber2.value = normalized.phoneNumber2 || '';
+  setSecondPhoneVisible(Boolean(els.phoneNumber2.value));
   renderBlazerRows(normalized.blazers);
   els.bookingDate.value = normalized.bookingDate;
   els.pickupDate.value = normalized.pickupDate;
@@ -522,6 +541,7 @@ function matchesSearch(rental, query) {
   return (
     rental.customerName.toLowerCase().includes(q) ||
     rental.phoneNumber.toLowerCase().includes(q) ||
+    (rental.phoneNumber2 || '').toLowerCase().includes(q) ||
     blazerCodes.includes(q) ||
     colorNames.includes(q) ||
     (rental.notes || '').toLowerCase().includes(q)
@@ -816,7 +836,7 @@ function buildReceiptHtml(rental) {
 
         <div class="grid">
           <div><div class="label">Customer</div><div>${escapeHtml(rental.customerName || '—')}</div></div>
-          <div><div class="label">Phone</div><div>${escapeHtml(rental.phoneNumber || '—')}</div></div>
+          <div><div class="label">Phone</div><div>${escapeHtml(rental.phoneNumber || '—')}${rental.phoneNumber2 ? `<br>${escapeHtml(rental.phoneNumber2)}` : ''}</div></div>
           <div><div class="label">Booking Date</div><div>${formatDate(rental.bookingDate)}</div></div>
           <div><div class="label">Pickup Date</div><div>${formatDate(rental.pickupDate)}</div></div>
           <div><div class="label">Return Date</div><div>${formatDate(rental.returnDate)}</div></div>
@@ -840,7 +860,7 @@ function buildReceiptHtml(rental) {
         <div class="totals">
           <div class="totals-box">
             <div class="row"><span>Total</span><strong>${formatCurrency(rental.totalPrice || 0)}</strong></div>
-            <div class="row"><span>Paid Now</span><strong>${formatCurrency(rental.advancePaid || 0)}</strong></div>
+            <div class="row"><span>advance money</span><strong>${formatCurrency(rental.advancePaid || 0)}</strong></div>
             <div class="row"><span>Balance</span><strong>${formatCurrency(getRentalBalance(rental))}</strong></div>
           </div>
         </div>
@@ -943,7 +963,7 @@ function renderDetailModalContent(rental) {
       <dl class="detail-grid">
         <div class="detail-field">
           <dt>${escapeHtml(t('labelPhoneNumber'))}</dt>
-          <dd>${renderPhoneLink(rental.phoneNumber)}</dd>
+          <dd>${renderPhoneLink(rental.phoneNumber)}${rental.phoneNumber2 ? `<br>${renderPhoneLink(rental.phoneNumber2)}` : ''}</dd>
         </div>
         <div class="detail-field">
           <dt>${escapeHtml(t('labelBookingDate'))}</dt>
@@ -1220,6 +1240,53 @@ function renderAnalytics() {
   els.analyticsOverdueRateValue.textContent = `${overdueRate}%`;
 }
 
+function getSalesByDay() {
+  const grouped = new Map();
+  rentals.forEach((rental) => {
+    const date = rental.bookingDate || 'Unknown';
+    const entry = grouped.get(date) || { date, revenue: 0, bookings: 0 };
+    entry.revenue += Number(rental.totalPrice) || 0;
+    entry.bookings += 1;
+    grouped.set(date, entry);
+  });
+  return [...grouped.values()].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function getRevenueByMonth() {
+  const grouped = new Map();
+  rentals.forEach((rental) => {
+    const month = (rental.bookingDate || '').slice(0, 7) || 'Unknown';
+    const entry = grouped.get(month) || { month, revenue: 0, bookings: 0 };
+    entry.revenue += Number(rental.totalPrice) || 0;
+    entry.bookings += 1;
+    grouped.set(month, entry);
+  });
+  return [...grouped.values()].sort((a, b) => b.month.localeCompare(a.month));
+}
+
+function closeAnalyticsHistory() {
+  els.analyticsHistoryModal?.classList.add('hidden');
+  els.analyticsHistoryModal?.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('modal-open');
+}
+
+function openAnalyticsHistory(type) {
+  if (!els.analyticsHistoryModal) return;
+  const isDaily = type === 'daily';
+  const records = isDaily ? getSalesByDay() : getRevenueByMonth();
+  els.analyticsHistoryTitle.textContent = t(isDaily ? 'analyticsDailyHistoryTitle' : 'analyticsMonthlyHistoryTitle');
+  els.analyticsHistoryBody.innerHTML = records.length ? `
+    <div class="overflow-x-auto rounded-lg border border-slate-200">
+      <table class="w-full min-w-[22rem] text-left text-sm">
+        <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-3 py-2">${escapeHtml(t(isDaily ? 'analyticsDate' : 'analyticsMonth'))}</th><th class="px-3 py-2">${escapeHtml(t('analyticsBookingsCount'))}</th><th class="px-3 py-2 text-right">${escapeHtml(t('analyticsRevenue'))}</th></tr></thead>
+        <tbody class="divide-y divide-slate-200">${records.map((record) => `<tr><td class="px-3 py-2 font-medium">${escapeHtml(isDaily ? formatDate(record.date) : record.month)}</td><td class="px-3 py-2">${record.bookings}</td><td class="px-3 py-2 text-right font-semibold">${escapeHtml(formatCurrency(record.revenue))}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>` : `<div class="rounded-lg bg-slate-50 p-6 text-center text-sm text-slate-500">${escapeHtml(t('analyticsNoData'))}</div>`;
+  els.analyticsHistoryModal.classList.remove('hidden');
+  els.analyticsHistoryModal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+}
+
 function downloadTextFile(fileName, content, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -1249,6 +1316,7 @@ function getExportCsvRows(items) {
     'Booking ID',
     'Customer Name',
     'Phone Number',
+    'Phone Number 2',
     'Blazer Codes',
     'Colors',
     'Booking Date',
@@ -1273,6 +1341,7 @@ function getExportCsvRows(items) {
       rental.id || '',
       rental.customerName || '',
       rental.phoneNumber || '',
+      rental.phoneNumber2 || '',
       blazers,
       colors,
       rental.bookingDate || '',
@@ -1670,12 +1739,19 @@ function initEventListeners() {
   els.rentalsCards.addEventListener('click', handleTableClick);
   els.detailModal?.addEventListener('click', handleTableClick);
   els.detailModalActions?.addEventListener('click', handleTableClick);
+  els.analyticsHistoryModal?.addEventListener('click', (event) => {
+    if (event.target.closest('[data-action="close-analytics-history"]')) closeAnalyticsHistory();
+  });
   els.restorePreviewModal?.addEventListener('click', (event) => {
     if (event.target.closest('[data-action="close-restore"]')) closeRestorePreview();
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (!els.analyticsHistoryModal?.classList.contains('hidden')) {
+      closeAnalyticsHistory();
+      return;
+    }
     if (!els.restorePreviewModal?.classList.contains('hidden')) closeRestorePreview();
     else if (activeDetailRentalId) closeDetailModal();
   });
@@ -1710,6 +1786,13 @@ function initEventListeners() {
   });
   els.exportCsvBtn?.addEventListener('click', exportBookingsCsv);
   els.backupDataBtn?.addEventListener('click', backupRentalData);
+  els.analyticsDailyCard?.addEventListener('click', () => openAnalyticsHistory('daily'));
+  els.analyticsMonthlyCard?.addEventListener('click', () => openAnalyticsHistory('monthly'));
+  els.phoneNumber2Toggle?.addEventListener('click', () => {
+    const visible = els.phoneNumber2Wrap?.classList.contains('hidden');
+    setSecondPhoneVisible(visible);
+    if (visible) els.phoneNumber2?.focus();
+  });
   els.restoreBackupInput?.addEventListener('change', handleRestoreFile);
   els.restoreMergeBtn?.addEventListener('click', () => restoreRentalData('merge'));
   els.restoreReplaceBtn?.addEventListener('click', () => restoreRentalData('replace'));
