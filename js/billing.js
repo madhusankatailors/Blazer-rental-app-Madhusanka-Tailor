@@ -2,7 +2,7 @@ import { requireAuth, logout } from './auth.js';
 import { subscribeBills, saveBills as persistBills } from './storage.js';
 
 const BILL_ITEMS = [
-  { key: 'coat', en: 'Coat', si: 'කෝට්' },
+  { key: 'blazers', en: 'Blazers', si: 'කෝට්' },
   { key: 'long-trousers', en: 'Long Trousers', si: 'දිග කලිසම්' },
   { key: 'short-trousers', en: 'Short Trousers', si: 'කොට කලිසම්' },
   { key: 'long-sleeve-shirt', en: 'Long Sleeve Shirt', si: 'අත් දිග ෂර්ට්' },
@@ -14,9 +14,10 @@ const BILL_ITEMS = [
   { key: 'tie', en: 'Tie', si: 'ටයි' },
   { key: 'bow', en: 'Bow', si: 'බෝ' },
   { key: 'belt', en: 'Belt', si: 'බෙල්ට්' },
-  { key: 'mesh', en: 'Mesh', si: 'මේෂ්' },
+  { key: 'socks', en: 'Socks', si: 'මේස්' },
   { key: 'cufflinks-tie-pin', en: 'Cufflinks / Tie Pin', si: 'කෆ්ලින් / ටයි පින්' },
   { key: 'shoes', en: 'Shoes', si: 'සපත්තු' },
+  { key: 'other', en: 'Other / Custom Item', si: 'වෙනත් / අභිරුචි අයිතමය', custom: true },
 ];
 
 let bills = [];
@@ -41,6 +42,9 @@ const els = {
   phone: $('billPhone'),
   receivedDate: $('billReceivedDate'),
   deliveryDate: $('billDeliveryDate'),
+  paymentType: $('billingPaymentType'),
+  paidAmountWrap: $('billingPaidAmountWrap'),
+  paymentHint: $('billingPaymentHint'),
   advance: $('billAdvance'),
   itemsBody: $('billingItemsBody'),
   formTotal: $('billingFormTotal'),
@@ -78,6 +82,7 @@ const els = {
   previewTotal: $('previewTotal'),
   previewAdvance: $('previewAdvance'),
   previewBalance: $('previewBalance'),
+  previewPaymentStatus: $('previewPaymentStatus'),
 
   itemSelect: $('billingItemSelect'),
   selectedItemsSummary: $('billingSelectedItemsSummary'),
@@ -158,7 +163,12 @@ function createItemRows() {
   els.itemsBody.innerHTML = BILL_ITEMS.map((item, index) => `
     <tr data-item-key="${escapeHtml(item.key)}" class="billing-entry-row">
       <td class="billing-item-index px-3 py-2 text-slate-500">${index + 1}</td>
-      <td class="billing-item-description px-3 py-2 font-medium text-slate-800 billing-item-name">${escapeHtml(getLocaleSafe() === 'si' ? item.si : item.en)}</td>
+      <td class="billing-item-description px-3 py-2 font-medium text-slate-800">
+        ${item.custom
+          ? `<input type="text" class="billing-custom-name w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    placeholder="${escapeHtml(t('billingOtherItemPlaceholder'))}" aria-label="${escapeHtml(t('billingOtherItemName'))}" />`
+          : `<span class="billing-item-name">${escapeHtml(getLocaleSafe() === 'si' ? item.si : item.en)}</span>`}
+      </td>
       <td class="billing-entry-field billing-qty-cell px-3 py-2">
         <span class="billing-mobile-field-label">${escapeHtml(t('billingQty'))}</span>
         <input type="number" min="0" step="1" value="" placeholder="0"
@@ -191,7 +201,12 @@ function billingRowIsActive(row) {
 }
 
 function getBillingRowLabel(row) {
-  return row.querySelector('.billing-item-name')?.textContent?.trim() || row.dataset.itemKey || '';
+  const customName = row.querySelector('.billing-custom-name')?.value?.trim();
+  if (customName) return customName;
+  const key = row.dataset.itemKey || '';
+  const def = BILL_ITEMS.find((item) => item.key === key);
+  return row.querySelector('.billing-item-name')?.textContent?.trim()
+    || (def ? (getLocaleSafe() === 'si' ? def.si : def.en) : key);
 }
 
 function populateBillingItemSelect() {
@@ -287,14 +302,17 @@ function getFormItems() {
     const itemDef = BILL_ITEMS.find((item) => item.key === key);
     const qtyRaw = row.querySelector('.billing-qty')?.value.trim() || '';
     const priceRaw = row.querySelector('.billing-price')?.value.trim() || '';
+    const customName = row.querySelector('.billing-custom-name')?.value.trim() || '';
 
     const qty = qtyRaw === '' ? 0 : Math.max(0, Number(qtyRaw) || 0);
     const unitPrice = priceRaw === '' ? 0 : Math.max(0, Number(priceRaw) || 0);
+    const fallbackEn = itemDef?.en || key;
+    const fallbackSi = itemDef?.si || key;
 
     return {
       key,
-      nameEn: itemDef?.en || key,
-      nameSi: itemDef?.si || key,
+      nameEn: itemDef?.custom ? (customName || fallbackEn) : fallbackEn,
+      nameSi: itemDef?.custom ? (customName || fallbackSi) : fallbackSi,
       qty,
       unitPrice,
       amount: qty * unitPrice,
@@ -302,12 +320,71 @@ function getFormItems() {
   });
 }
 
-function getTotals(items, advanceValue) {
+function getTotals(items, paymentType = 'unpaid', paidValue = '') {
   const total = (items || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-  const advanceRaw = String(advanceValue ?? '').trim();
-  const advance = advanceRaw === '' ? 0 : Math.max(0, Number(advanceRaw) || 0);
-  const balance = Math.max(0, total - advance);
-  return { total, advance, balance };
+  const paidRaw = String(paidValue ?? '').trim();
+  let paid = 0;
+
+  if (paymentType === 'full') {
+    paid = total;
+  } else if (paymentType === 'advance') {
+    paid = paidRaw === '' ? 0 : Math.max(0, Number(paidRaw) || 0);
+  }
+
+  const balance = Math.max(0, total - paid);
+  return { total, paid, advance: paid, balance };
+}
+
+function getBillPaymentType(bill) {
+  if (bill?.paymentType === 'full' || bill?.paymentType === 'advance' || bill?.paymentType === 'unpaid') {
+    return bill.paymentType;
+  }
+
+  const total = Number(bill?.totalAmount) || 0;
+  const paid = Number(bill?.paidAmount ?? bill?.advanceAmount) || 0;
+  if (total > 0 && paid >= total) return 'full';
+  if (paid > 0) return 'advance';
+  return 'unpaid';
+}
+
+function normalizeBill(bill) {
+  const total = Number(bill?.totalAmount) || 0;
+  const legacyPaid = Math.max(0, Number(bill?.paidAmount ?? bill?.advanceAmount) || 0);
+  const paymentType = getBillPaymentType({ ...bill, totalAmount: total, paidAmount: legacyPaid });
+  const paid = paymentType === 'full' ? total : paymentType === 'advance' ? Math.min(legacyPaid, total) : 0;
+
+  return {
+    ...bill,
+    paymentType,
+    paidAmount: paid,
+    advanceAmount: paid,
+    balanceAmount: Math.max(0, total - paid),
+  };
+}
+
+function getPaymentStatusLabel(billOrType) {
+  const type = typeof billOrType === 'string' ? billOrType : getBillPaymentType(billOrType);
+  if (type === 'full') return t('billingPaymentFull');
+  if (type === 'advance') return t('billingPaymentAdvance');
+  return t('billingPaymentUnpaid');
+}
+
+function updatePaymentControls() {
+  if (!els.paymentType || !els.advance || !els.paidAmountWrap) return;
+  const type = els.paymentType.value || 'unpaid';
+
+  els.paidAmountWrap.classList.toggle('hidden', type === 'unpaid');
+  els.advance.disabled = type !== 'advance';
+  els.advance.required = type === 'advance';
+
+  if (type === 'unpaid') {
+    els.advance.value = '';
+    if (els.paymentHint) els.paymentHint.textContent = t('billingPaymentUnpaidHint');
+  } else if (type === 'full') {
+    if (els.paymentHint) els.paymentHint.textContent = t('billingPaymentFullHint');
+  } else if (els.paymentHint) {
+    els.paymentHint.textContent = t('billingPaymentAdvanceHint');
+  }
 }
 
 function updateFormTotals() {
@@ -317,16 +394,26 @@ function updateFormTotals() {
     row.querySelector('.billing-row-amount').textContent = formatMoney(items[index].amount);
   });
 
-  const totals = getTotals(items, els.advance.value);
+  const paymentType = els.paymentType?.value || 'unpaid';
+  const totals = getTotals(items, paymentType, els.advance.value);
+
+  if (paymentType === 'full') {
+    els.advance.value = totals.total > 0 ? totals.total.toFixed(2) : '';
+  }
+
   els.formTotal.textContent = `Rs. ${formatMoney(totals.total)}`;
-  els.formAdvance.textContent = `Rs. ${formatMoney(totals.advance)}`;
+  els.formAdvance.textContent = `Rs. ${formatMoney(totals.paid)}`;
   els.formBalance.textContent = `Rs. ${formatMoney(totals.balance)}`;
+
+  els.formBalance.parentElement?.classList.toggle('ring-2', totals.balance > 0);
+  els.formBalance.parentElement?.classList.toggle('ring-violet-200', totals.balance > 0);
   renderSelectedBillingItems();
 }
 
 function collectFormBill() {
   const items = getFormItems();
-  const totals = getTotals(items, els.advance.value);
+  const paymentType = els.paymentType?.value || 'unpaid';
+  const totals = getTotals(items, paymentType, els.advance.value);
   const existing = bills.find((bill) => bill.id === currentBillId);
 
   return {
@@ -339,7 +426,9 @@ function collectFormBill() {
     deliveryDate: els.deliveryDate.value,
     items,
     totalAmount: totals.total,
-    advanceAmount: totals.advance,
+    paymentType,
+    paidAmount: totals.paid,
+    advanceAmount: totals.paid,
     balanceAmount: totals.balance,
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -364,7 +453,14 @@ function validateBill(bill) {
     return false;
   }
 
-  if (bill.advanceAmount > bill.totalAmount) {
+  const otherItem = bill.items.find((item) => item.key === 'other' && item.qty > 0);
+  if (otherItem && (!otherItem.nameEn || otherItem.nameEn === 'Other / Custom Item')) {
+    els.itemsBody.querySelector('[data-item-key="other"] .billing-custom-name')?.focus();
+    showToast(t('billingErrorOtherItem'), 'error');
+    return false;
+  }
+
+  if (bill.paidAmount > bill.totalAmount) {
     els.advance.focus();
     showToast(t('billingErrorAdvance'), 'error');
     return false;
@@ -427,16 +523,21 @@ function resetForm() {
   els.billDate.value = todayISO();
   els.receivedDate.value = todayISO();
   els.deliveryDate.value = '';
+  if (els.paymentType) els.paymentType.value = 'unpaid';
   els.advance.value = '';
+  updatePaymentControls();
 
   [...els.itemsBody.querySelectorAll('tr')].forEach((row) => {
     row.querySelector('.billing-qty').value = '';
     row.querySelector('.billing-price').value = '';
+    const customName = row.querySelector('.billing-custom-name');
+    if (customName) customName.value = '';
   });
 
   els.formTitle.textContent = t('billingNewBill');
   els.savePreviewBtn.textContent = t('billingSavePreview');
   els.saveBtn.textContent = t('billingSave');
+  updatePaymentControls();
   updateFormTotals();
   refreshBillingItemPicker(false);
 }
@@ -451,13 +552,21 @@ function fillForm(bill) {
   els.phone.value = bill.phone || '';
   els.receivedDate.value = bill.receivedDate || '';
   els.deliveryDate.value = bill.deliveryDate || '';
-  els.advance.value = Number(bill.advanceAmount) > 0 ? bill.advanceAmount : '';
+  const normalized = normalizeBill(bill);
+  if (els.paymentType) els.paymentType.value = normalized.paymentType;
+  els.advance.value = normalized.paymentType === 'unpaid' ? '' : normalized.paidAmount;
+  updatePaymentControls();
 
   const byKey = new Map((bill.items || []).map((item) => [item.key, item]));
   [...els.itemsBody.querySelectorAll('tr')].forEach((row) => {
     const item = byKey.get(row.dataset.itemKey);
     row.querySelector('.billing-qty').value = Number(item?.qty) > 0 ? item.qty : '';
     row.querySelector('.billing-price').value = Number(item?.unitPrice) > 0 ? item.unitPrice : '';
+    const customName = row.querySelector('.billing-custom-name');
+    if (customName) {
+      const customValue = item?.nameEn && item.nameEn !== 'Other / Custom Item' ? item.nameEn : '';
+      customName.value = customValue;
+    }
   });
 
   els.formTitle.textContent = t('billingEditBill', { number: bill.billNo });
@@ -473,7 +582,7 @@ function fillForm(bill) {
 function renderStats() {
   const totals = bills.reduce((acc, bill) => {
     acc.total += Number(bill.totalAmount) || 0;
-    acc.advance += Number(bill.advanceAmount) || 0;
+    acc.advance += Number(bill.paidAmount ?? bill.advanceAmount) || 0;
     acc.balance += Number(bill.balanceAmount) || 0;
     return acc;
   }, { total: 0, advance: 0, balance: 0 });
@@ -501,6 +610,16 @@ function getFilteredBills() {
   });
 }
 
+function paymentStatusBadge(bill) {
+  const type = getBillPaymentType(bill);
+  const classes = type === 'full'
+    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+    : type === 'advance'
+      ? 'bg-amber-100 text-amber-800 border-amber-200'
+      : 'bg-rose-100 text-rose-800 border-rose-200';
+  return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${classes}">${escapeHtml(getPaymentStatusLabel(type))}</span>`;
+}
+
 function renderSavedBills() {
   const filtered = getFilteredBills();
   const hasBills = filtered.length > 0;
@@ -509,37 +628,54 @@ function renderSavedBills() {
   els.savedWrap.classList.toggle('hidden', !hasBills);
   els.savedCards?.classList.toggle('hidden', !hasBills);
 
-  els.savedBody.innerHTML = filtered.map((bill) => `
+  els.savedBody.innerHTML = filtered.map((bill) => {
+    const normalized = normalizeBill(bill);
+    const hasBalance = normalized.balanceAmount > 0;
+    return `
     <tr class="hover:bg-slate-50">
-      <td class="px-3 py-3 font-semibold text-slate-900">${escapeHtml(bill.billNo || '—')}</td>
-      <td class="px-3 py-3">${escapeHtml(bill.customerName || '—')}</td>
-      <td class="px-3 py-3 whitespace-nowrap">${formatDate(bill.billDate)}</td>
-      <td class="px-3 py-3 text-right whitespace-nowrap font-semibold">Rs. ${formatMoney(bill.totalAmount)}</td>
-      <td class="px-3 py-3 text-right whitespace-nowrap ${Number(bill.balanceAmount) > 0 ? 'text-violet-700 font-bold' : 'text-emerald-700 font-semibold'}">Rs. ${formatMoney(bill.balanceAmount)}</td>
+      <td class="px-3 py-3 font-semibold text-slate-900">${escapeHtml(normalized.billNo || '—')}</td>
+      <td class="px-3 py-3">
+        <div>${escapeHtml(normalized.customerName || '—')}</div>
+        <div class="mt-1">${paymentStatusBadge(normalized)}</div>
+      </td>
+      <td class="px-3 py-3 whitespace-nowrap">${formatDate(normalized.billDate)}</td>
+      <td class="px-3 py-3 text-right whitespace-nowrap font-semibold">Rs. ${formatMoney(normalized.totalAmount)}</td>
+      <td class="px-3 py-3 text-right whitespace-nowrap ${hasBalance ? 'text-violet-700 font-bold' : 'text-emerald-700 font-semibold'}">
+        Rs. ${formatMoney(normalized.balanceAmount)}
+        <div class="text-[10px] font-medium text-slate-500 mt-0.5">${escapeHtml(t('billingPaidShort'))}: Rs. ${formatMoney(normalized.paidAmount)}</div>
+      </td>
       <td class="px-3 py-3">
         <div class="flex flex-wrap justify-end gap-1">
-          <button type="button" data-bill-action="preview" data-id="${escapeHtml(bill.id)}"
+          ${hasBalance ? `<button type="button" data-bill-action="collect-balance" data-id="${escapeHtml(normalized.id)}"
+                  class="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">${escapeHtml(t('billingCollectBalance'))}</button>` : ''}
+          <button type="button" data-bill-action="preview" data-id="${escapeHtml(normalized.id)}"
                   class="px-2.5 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50">${escapeHtml(t('billingPreview'))}</button>
-          <button type="button" data-bill-action="edit" data-id="${escapeHtml(bill.id)}"
+          <button type="button" data-bill-action="edit" data-id="${escapeHtml(normalized.id)}"
                   class="px-2.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700">${escapeHtml(t('btnEdit'))}</button>
-          <button type="button" data-bill-action="pdf" data-id="${escapeHtml(bill.id)}"
+          <button type="button" data-bill-action="pdf" data-id="${escapeHtml(normalized.id)}"
                   class="px-2.5 py-1.5 rounded-md bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700">PDF</button>
-          <button type="button" data-bill-action="delete" data-id="${escapeHtml(bill.id)}"
+          <button type="button" data-bill-action="delete" data-id="${escapeHtml(normalized.id)}"
                   class="px-2.5 py-1.5 rounded-md bg-red-600 text-white text-xs font-semibold hover:bg-red-700">${escapeHtml(t('btnDelete'))}</button>
         </div>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 
   if (els.savedCards) {
-    els.savedCards.innerHTML = filtered.map((bill) => `
+    els.savedCards.innerHTML = filtered.map((rawBill) => {
+      const bill = normalizeBill(rawBill);
+      const hasBalance = bill.balanceAmount > 0;
+      return `
       <article class="billing-saved-card">
         <div class="billing-saved-card-head">
           <div class="min-w-0">
             <p class="billing-saved-card-label">${escapeHtml(t('billingBillNo'))}</p>
             <p class="billing-saved-card-number">${escapeHtml(bill.billNo || '—')}</p>
           </div>
-          <div class="billing-saved-card-date">${formatDate(bill.billDate)}</div>
+          <div class="text-right">
+            <div class="billing-saved-card-date">${formatDate(bill.billDate)}</div>
+            <div class="mt-1">${paymentStatusBadge(bill)}</div>
+          </div>
         </div>
 
         <div class="billing-saved-card-customer">
@@ -553,13 +689,19 @@ function renderSavedBills() {
             <span>${escapeHtml(t('billingTotal'))}</span>
             <strong>Rs. ${formatMoney(bill.totalAmount)}</strong>
           </div>
-          <div class="${Number(bill.balanceAmount) > 0 ? 'billing-balance-due' : 'billing-balance-paid'}">
+          <div>
+            <span>${escapeHtml(t('billingPaidShort'))}</span>
+            <strong>Rs. ${formatMoney(bill.paidAmount)}</strong>
+          </div>
+          <div class="${hasBalance ? 'billing-balance-due' : 'billing-balance-paid'}">
             <span>${escapeHtml(t('billingBalance'))}</span>
             <strong>Rs. ${formatMoney(bill.balanceAmount)}</strong>
           </div>
         </div>
 
         <div class="billing-saved-card-actions">
+          ${hasBalance ? `<button type="button" data-bill-action="collect-balance" data-id="${escapeHtml(bill.id)}"
+                  class="billing-mobile-action bg-emerald-600 text-white">${escapeHtml(t('billingCollectBalance'))}</button>` : ''}
           <button type="button" data-bill-action="preview" data-id="${escapeHtml(bill.id)}"
                   class="billing-mobile-action border border-slate-300 bg-white text-slate-700">${escapeHtml(t('billingPreview'))}</button>
           <button type="button" data-bill-action="edit" data-id="${escapeHtml(bill.id)}"
@@ -569,8 +711,8 @@ function renderSavedBills() {
           <button type="button" data-bill-action="delete" data-id="${escapeHtml(bill.id)}"
                   class="billing-mobile-action bg-red-600 text-white">${escapeHtml(t('btnDelete'))}</button>
         </div>
-      </article>
-    `).join('');
+      </article>`;
+    }).join('');
   }
 }
 function renderPreviewItems(bill) {
@@ -609,9 +751,11 @@ function renderPreview(bill) {
   els.previewBillDate.textContent = formatDate(bill.billDate);
   els.previewReceivedDate.textContent = formatDate(bill.receivedDate);
   els.previewDeliveryDate.textContent = formatDate(bill.deliveryDate);
-  els.previewTotal.textContent = formatMoney(bill.totalAmount);
-  els.previewAdvance.textContent = formatMoney(bill.advanceAmount);
-  els.previewBalance.textContent = formatMoney(bill.balanceAmount);
+  const normalized = normalizeBill(bill);
+  els.previewTotal.textContent = formatMoney(normalized.totalAmount);
+  els.previewAdvance.textContent = formatMoney(normalized.paidAmount);
+  els.previewBalance.textContent = formatMoney(normalized.balanceAmount);
+  if (els.previewPaymentStatus) els.previewPaymentStatus.textContent = getPaymentStatusLabel(normalized);
   renderPreviewItems(bill);
 }
 
@@ -740,6 +884,40 @@ function printPreview() {
   window.print();
 }
 
+async function collectBillBalance(bill) {
+  const normalized = normalizeBill(bill);
+  if (normalized.balanceAmount <= 0) return;
+
+  if (!window.confirm(t('billingConfirmCollectBalance', {
+    amount: `Rs. ${formatMoney(normalized.balanceAmount)}`,
+    number: normalized.billNo || '',
+  }))) return;
+
+  const previousBills = [...bills];
+  const updated = {
+    ...normalized,
+    paymentType: 'full',
+    paidAmount: normalized.totalAmount,
+    advanceAmount: normalized.totalAmount,
+    balanceAmount: 0,
+    updatedAt: new Date().toISOString(),
+  };
+
+  bills = bills.map((item) => item.id === updated.id ? updated : item);
+
+  try {
+    await persistCurrentBills();
+    if (currentBillId === updated.id) fillForm(updated);
+    if (currentPreviewBill?.id === updated.id) renderPreview(updated);
+    renderAll();
+    showToast(t('billingToastBalanceCollected'), 'success');
+  } catch {
+    bills = previousBills;
+    renderAll();
+    showToast(t('toastSyncError'), 'error');
+  }
+}
+
 async function deleteBill(id) {
   const bill = bills.find((item) => item.id === id);
   if (!bill) return;
@@ -768,6 +946,8 @@ function renderItemLanguage() {
     const item = BILL_ITEMS.find((entry) => entry.key === key);
     const cell = row.querySelector('.billing-item-name');
     if (item && cell) cell.textContent = getLocaleSafe() === 'si' ? item.si : item.en;
+    const customName = row.querySelector('.billing-custom-name');
+    if (customName) customName.placeholder = t('billingOtherItemPlaceholder');
 
     const labels = row.querySelectorAll('.billing-mobile-field-label');
     if (labels[0]) labels[0].textContent = t('billingQty');
@@ -775,6 +955,7 @@ function renderItemLanguage() {
     if (labels[2]) labels[2].textContent = t('billingAmount');
   });
 
+  updatePaymentControls();
   refreshBillingItemPicker(false);
 
   if (currentPreviewBill) {
@@ -821,7 +1002,8 @@ function handleSavedActions(event) {
   const id = button.dataset.id;
   const bill = id ? getBillById(id) : null;
 
-  if (action === 'preview' && bill) openPreview(bill);
+  if (action === 'preview' && bill) openPreview(normalizeBill(bill));
+  if (action === 'collect-balance' && bill) collectBillBalance(bill);
   if (action === 'edit' && bill) {
     closePreview();
     fillForm(bill);
@@ -845,6 +1027,12 @@ function initEvents() {
   });
 
   els.advance.addEventListener('input', updateFormTotals);
+  els.paymentType?.addEventListener('change', () => {
+    if (els.paymentType.value === 'advance') els.advance.value = '';
+    updatePaymentControls();
+    updateFormTotals();
+    if (els.paymentType.value === 'advance') window.setTimeout(() => els.advance.focus(), 0);
+  });
   els.search.addEventListener('input', renderSavedBills);
 
   els.itemSelect?.addEventListener('change', () => {
@@ -923,7 +1111,7 @@ async function init() {
 
   subscribeBills(
     (items) => {
-      bills = Array.isArray(items) ? items : [];
+      bills = Array.isArray(items) ? items.map(normalizeBill) : [];
       hideLoading();
       setSyncState('saved');
       renderAll();
