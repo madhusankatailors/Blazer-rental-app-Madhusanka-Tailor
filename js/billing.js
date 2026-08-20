@@ -26,6 +26,15 @@ let currentPreviewBill = null;
 let pendingWrites = 0;
 let syncState = 'loading';
 let itemRowCounter = 0;
+let saveInProgress = false;
+
+const CUSTOMER_PAGE_SIZE = 6;
+const SAVED_BILLS_PAGE_SIZE = 10;
+const CUSTOMER_HISTORY_PAGE_SIZE = 4;
+let customerPage = 1;
+let savedBillsPage = 1;
+let customerHistoryPage = 1;
+let currentCustomerId = '';
 
 const $ = (id) => document.getElementById(id);
 
@@ -56,15 +65,33 @@ const els = {
   savePreviewBtn: $('billingSavePreviewBtn'),
 
   statCount: $('billingStatCount'),
-  statTotal: $('billingStatTotal'),
-  statAdvance: $('billingStatAdvance'),
-  statBalance: $('billingStatBalance'),
+  statCustomers: $('billingStatCustomers'),
+
+  customerSearch: $('billingCustomerSearch'),
+  customerProfiles: $('billingCustomerProfiles'),
+  customerEmpty: $('billingCustomerEmpty'),
+  customerEmptyTitle: $('billingCustomerEmptyTitle'),
+  customerEmptyHint: $('billingCustomerEmptyHint'),
+  customerPagination: $('billingCustomerPagination'),
+
+  customerModal: $('billingCustomerModal'),
+  customerModalAvatar: $('billingCustomerModalAvatar'),
+  customerModalName: $('billingCustomerModalName'),
+  customerModalPhone: $('billingCustomerModalPhone'),
+  customerModalBillCount: $('billingCustomerModalBillCount'),
+  customerModalTotal: $('billingCustomerModalTotal'),
+  customerModalPaid: $('billingCustomerModalPaid'),
+  customerModalBalance: $('billingCustomerModalBalance'),
+  customerModalRange: $('billingCustomerModalRange'),
+  customerModalBills: $('billingCustomerModalBills'),
+  customerHistoryPagination: $('billingCustomerHistoryPagination'),
 
   search: $('billingSearch'),
   savedWrap: $('billingSavedWrap'),
   savedCards: $('billingSavedCards'),
   savedBody: $('billingSavedBody'),
   empty: $('billingEmpty'),
+  savedPagination: $('billingSavedPagination'),
 
   previewModal: $('billingPreviewModal'),
   previewEditBtn: $('billingPreviewEditBtn'),
@@ -84,6 +111,7 @@ const els = {
   previewAdvance: $('previewAdvance'),
   previewBalance: $('previewBalance'),
   previewPaymentStatus: $('previewPaymentStatus'),
+  paidSeal: $('billingPaidSeal'),
 
   itemSelect: $('billingItemSelect'),
   selectedItemsSummary: $('billingSelectedItemsSummary'),
@@ -375,14 +403,24 @@ function getBillPaymentType(bill) {
   return 'unpaid';
 }
 
+function normalizePhoneKey(value) {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('0094')) digits = `0${digits.slice(4)}`;
+  else if (digits.startsWith('94') && digits.length >= 11) digits = `0${digits.slice(2)}`;
+  return digits;
+}
+
 function normalizeBill(bill) {
   const total = Number(bill?.totalAmount) || 0;
   const legacyPaid = Math.max(0, Number(bill?.paidAmount ?? bill?.advanceAmount) || 0);
   const paymentType = getBillPaymentType({ ...bill, totalAmount: total, paidAmount: legacyPaid });
   const paid = paymentType === 'full' ? total : paymentType === 'advance' ? Math.min(legacyPaid, total) : 0;
 
+  const customerId = normalizePhoneKey(bill?.phone || bill?.customerId || '');
+
   return {
     ...bill,
+    customerId,
     paymentType,
     paidAmount: paid,
     advanceAmount: paid,
@@ -450,6 +488,7 @@ function collectFormBill() {
     billDate: els.billDate.value,
     customerName: els.customerName.value.trim(),
     phone: els.phone.value.trim(),
+    customerId: normalizePhoneKey(els.phone.value),
     receivedDate: els.receivedDate.value,
     deliveryDate: els.deliveryDate.value,
     items,
@@ -473,6 +512,12 @@ function validateBill(bill) {
   if (!bill.customerName) {
     els.customerName.focus();
     showToast(t('billingErrorCustomer'), 'error');
+    return false;
+  }
+
+  if (!bill.phone || !bill.customerId) {
+    els.phone.focus();
+    showToast(t('billingErrorPhone'), 'error');
     return false;
   }
 
@@ -508,6 +553,33 @@ function validateBill(bill) {
   return true;
 }
 
+function updateSaveButtonLabels() {
+  if (saveInProgress) return;
+  if (els.savePreviewBtn) els.savePreviewBtn.textContent = currentBillId ? t('billingUpdatePreview') : t('billingSavePreview');
+  if (els.saveBtn) els.saveBtn.textContent = currentBillId ? t('billingUpdate') : t('billingSave');
+}
+
+function setSaveButtonsLoading(active, openAfterSave = false) {
+  saveInProgress = active;
+  const buttons = [els.saveBtn, els.savePreviewBtn].filter(Boolean);
+  buttons.forEach((button) => {
+    button.disabled = active;
+    button.classList.toggle('billing-button-disabled', active);
+    button.classList.remove('billing-button-loading');
+  });
+
+  if (!active) {
+    updateSaveButtonLabels();
+    return;
+  }
+
+  const target = openAfterSave ? els.savePreviewBtn : els.saveBtn;
+  if (!target) return;
+  const label = currentBillId ? t('billingUpdatingNow') : t('billingSavingNow');
+  target.classList.add('billing-button-loading');
+  target.innerHTML = `<span class="billing-action-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+}
+
 async function persistCurrentBills() {
   setSyncState('saving');
   pendingWrites += 1;
@@ -526,15 +598,20 @@ async function persistCurrentBills() {
 async function saveBill(bill) {
   const previousBills = [...bills];
   const index = bills.findIndex((item) => item.id === bill.id);
+  const isUpdate = index >= 0;
 
-  if (index >= 0) bills[index] = bill;
+  if (isUpdate) bills[index] = bill;
   else bills.unshift(bill);
 
   try {
     await persistCurrentBills();
     currentBillId = bill.id;
     els.editId.value = bill.id;
-    showToast(t('billingToastSaved'), 'success');
+    if (!isUpdate) {
+      savedBillsPage = 1;
+      customerPage = 1;
+    }
+    showToast(t(isUpdate ? 'billingToastUpdated' : 'billingToastSaved'), 'success');
     renderAll();
     return true;
   } catch {
@@ -563,8 +640,7 @@ function resetForm() {
   if (els.itemSelect) els.itemSelect.value = '';
 
   els.formTitle.textContent = t('billingNewBill');
-  els.savePreviewBtn.textContent = t('billingSavePreview');
-  els.saveBtn.textContent = t('billingSave');
+  updateSaveButtonLabels();
   updatePaymentControls();
   updateFormTotals();
   refreshBillingItemPicker();
@@ -592,8 +668,7 @@ function fillForm(bill) {
   reindexBillingRows();
 
   els.formTitle.textContent = t('billingEditBill', { number: bill.billNo });
-  els.savePreviewBtn.textContent = t('billingUpdatePreview');
-  els.saveBtn.textContent = t('billingUpdate');
+  updateSaveButtonLabels();
   updateFormTotals();
   refreshBillingItemPicker();
 
@@ -601,18 +676,244 @@ function fillForm(bill) {
   window.setTimeout(() => els.billNo.focus({ preventScroll: true }), 250);
 }
 
-function renderStats() {
-  const totals = bills.reduce((acc, bill) => {
-    acc.total += Number(bill.totalAmount) || 0;
-    acc.advance += Number(bill.paidAmount ?? bill.advanceAmount) || 0;
-    acc.balance += Number(bill.balanceAmount) || 0;
-    return acc;
-  }, { total: 0, advance: 0, balance: 0 });
+function getCustomerProfiles() {
+  const grouped = new Map();
 
-  els.statCount.textContent = bills.length;
-  els.statTotal.textContent = `Rs. ${formatMoney(totals.total)}`;
-  els.statAdvance.textContent = `Rs. ${formatMoney(totals.advance)}`;
-  els.statBalance.textContent = `Rs. ${formatMoney(totals.balance)}`;
+  bills.forEach((rawBill) => {
+    const bill = normalizeBill(rawBill);
+    const customerId = bill.customerId || normalizePhoneKey(bill.phone);
+    if (!customerId) return;
+
+    if (!grouped.has(customerId)) grouped.set(customerId, []);
+    grouped.get(customerId).push(bill);
+  });
+
+  return [...grouped.entries()].map(([customerId, customerBills]) => {
+    customerBills.sort((a, b) => {
+      const dateCompare = (b.billDate || '').localeCompare(a.billDate || '');
+      if (dateCompare !== 0) return dateCompare;
+      return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+    });
+
+    const latest = customerBills[0] || {};
+    const totals = customerBills.reduce((summary, bill) => {
+      summary.totalBilled += Number(bill.totalAmount) || 0;
+      summary.totalPaid += Number(bill.paidAmount) || 0;
+      summary.totalBalance += Number(bill.balanceAmount) || 0;
+      return summary;
+    }, { totalBilled: 0, totalPaid: 0, totalBalance: 0 });
+
+    return {
+      customerId,
+      customerName: latest.customerName || t('billingUnknownCustomer'),
+      phone: latest.phone || customerId,
+      latestBillDate: latest.billDate || '',
+      latestUpdatedAt: latest.updatedAt || latest.createdAt || '',
+      totalBilled: totals.totalBilled,
+      totalPaid: totals.totalPaid,
+      totalBalance: totals.totalBalance,
+      bills: customerBills,
+    };
+  }).sort((a, b) => {
+    const activityCompare = (b.latestUpdatedAt || '').localeCompare(a.latestUpdatedAt || '');
+    if (activityCompare !== 0) return activityCompare;
+    return (b.latestBillDate || '').localeCompare(a.latestBillDate || '');
+  });
+}
+
+function renderStats() {
+  if (els.statCount) els.statCount.textContent = bills.length;
+  if (els.statCustomers) els.statCustomers.textContent = getCustomerProfiles().length;
+}
+
+function clampPage(page, totalItems, pageSize) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  return Math.min(Math.max(1, Number(page) || 1), totalPages);
+}
+
+function getPaginationTokens(currentPage, totalPages) {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+
+  const pages = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1]);
+  const sorted = [...pages].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+  const tokens = [];
+  sorted.forEach((page, index) => {
+    if (index && page - sorted[index - 1] > 1) tokens.push('ellipsis');
+    tokens.push(page);
+  });
+  return tokens;
+}
+
+function renderPagination(container, scope, totalItems, currentPage, pageSize) {
+  if (!container) return currentPage;
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const page = clampPage(currentPage, totalItems, pageSize);
+  const shouldShow = totalItems > pageSize;
+  container.classList.toggle('hidden', !shouldShow);
+
+  if (!shouldShow) {
+    container.innerHTML = '';
+    return page;
+  }
+
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, totalItems);
+  const buttons = getPaginationTokens(page, totalPages).map((token) => {
+    if (token === 'ellipsis') return '<span class="billing-pagination-ellipsis" aria-hidden="true">…</span>';
+    const active = token === page;
+    return `<button type="button" class="billing-page-btn${active ? ' is-active' : ''}" data-page-scope="${scope}" data-page="${token}" ${active ? 'aria-current="page"' : ''}>${token}</button>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="billing-pagination-info">${escapeHtml(t('billingShowingRange', { from, to, total: totalItems }))}</div>
+    <div class="billing-pagination-controls">
+      <button type="button" class="billing-page-btn billing-page-nav" data-page-scope="${scope}" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>‹ <span>${escapeHtml(t('billingPrevious'))}</span></button>
+      <div class="billing-page-numbers">${buttons}</div>
+      <button type="button" class="billing-page-btn billing-page-nav" data-page-scope="${scope}" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}><span>${escapeHtml(t('billingNext'))}</span> ›</button>
+    </div>`;
+
+  return page;
+}
+
+function renderCustomerBillCard(rawBill) {
+  const bill = normalizeBill(rawBill);
+  const hasBalance = bill.balanceAmount > 0;
+  return `
+    <article class="billing-customer-bill-row">
+      <div class="billing-customer-bill-head">
+        <div>
+          <span class="billing-customer-bill-label">${escapeHtml(t('billingBillNo'))}</span>
+          <strong>${escapeHtml(bill.billNo || '—')}</strong>
+        </div>
+        <div class="billing-customer-bill-meta">
+          <span>${escapeHtml(formatDate(bill.billDate))}</span>
+          ${paymentStatusBadge(bill)}
+        </div>
+      </div>
+      <div class="billing-customer-bill-money">
+        <div><span>${escapeHtml(t('billingTotal'))}</span><strong>Rs. ${formatMoney(bill.totalAmount)}</strong></div>
+        <div><span>${escapeHtml(t('billingPaidShort'))}</span><strong>Rs. ${formatMoney(bill.paidAmount)}</strong></div>
+        <div class="${hasBalance ? 'billing-balance-due' : 'billing-balance-paid'}"><span>${escapeHtml(t('billingBalance'))}</span><strong>Rs. ${formatMoney(bill.balanceAmount)}</strong></div>
+      </div>
+      <div class="billing-customer-bill-actions">
+        ${hasBalance ? `<button type="button" class="billing-customer-action billing-customer-action-pay" data-bill-action="collect-balance" data-id="${escapeHtml(bill.id)}">${escapeHtml(t('billingCollectBalance'))}</button>` : ''}
+        <button type="button" class="billing-customer-action" data-bill-action="preview" data-id="${escapeHtml(bill.id)}">${escapeHtml(t('billingPreview'))}</button>
+        <button type="button" class="billing-customer-action" data-bill-action="edit" data-id="${escapeHtml(bill.id)}">${escapeHtml(t('btnEdit'))}</button>
+        <button type="button" class="billing-customer-action" data-bill-action="pdf" data-id="${escapeHtml(bill.id)}">PDF</button>
+        <button type="button" class="billing-customer-action billing-customer-action-delete" data-bill-action="delete" data-id="${escapeHtml(bill.id)}">${escapeHtml(t('btnDelete'))}</button>
+      </div>
+    </article>`;
+}
+
+function renderCustomerProfiles() {
+  if (!els.customerProfiles || !els.customerEmpty) return;
+
+  const profiles = getCustomerProfiles();
+  const query = (els.customerSearch?.value || '').trim().toLowerCase();
+  const phoneQuery = normalizePhoneKey(query);
+  const filtered = profiles.filter((profile) => {
+    if (!query) return true;
+    return String(profile.customerName || '').toLowerCase().includes(query)
+      || String(profile.phone || '').toLowerCase().includes(query)
+      || String(profile.customerId || '').includes(phoneQuery || query);
+  });
+
+  const hasProfiles = filtered.length > 0;
+  els.customerProfiles.classList.toggle('hidden', !hasProfiles);
+  els.customerEmpty.classList.toggle('hidden', hasProfiles);
+
+  if (!hasProfiles) {
+    if (els.customerEmptyTitle) els.customerEmptyTitle.textContent = query ? t('billingCustomerNoMatch') : t('billingCustomerEmpty');
+    if (els.customerEmptyHint) els.customerEmptyHint.textContent = query ? t('billingCustomerNoMatchHint') : t('billingCustomerEmptyHint');
+    els.customerProfiles.innerHTML = '';
+    if (els.customerPagination) {
+      els.customerPagination.innerHTML = '';
+      els.customerPagination.classList.add('hidden');
+    }
+    customerPage = 1;
+    return;
+  }
+
+  customerPage = renderPagination(els.customerPagination, 'customers', filtered.length, customerPage, CUSTOMER_PAGE_SIZE);
+  const start = (customerPage - 1) * CUSTOMER_PAGE_SIZE;
+  const pageProfiles = filtered.slice(start, start + CUSTOMER_PAGE_SIZE);
+
+  els.customerProfiles.innerHTML = pageProfiles.map((profile) => {
+    const billCount = profile.bills.length;
+    const billWord = billCount === 1 ? t('billingOneBill') : t('billingManyBills', { count: billCount });
+    const initial = (profile.customerName || '?').trim().charAt(0).toUpperCase() || '?';
+
+    return `
+      <article class="billing-customer-profile">
+        <div class="billing-customer-profile-summary">
+          <div class="billing-customer-avatar" aria-hidden="true">${escapeHtml(initial)}</div>
+          <div class="billing-customer-main">
+            <strong class="billing-customer-name">${escapeHtml(profile.customerName)}</strong>
+            <span class="billing-customer-id-label">${escapeHtml(t('billingCustomerId'))}</span>
+            <div class="billing-customer-phone-line">
+              <span class="billing-customer-phone">${escapeHtml(profile.phone || profile.customerId)}</span>
+              <span class="billing-customer-inline-total"><span>${escapeHtml(t('billingAllBillsTotal'))}</span><strong>Rs. ${formatMoney(profile.totalBilled)}</strong></span>
+            </div>
+          </div>
+          <div class="billing-customer-summary-meta">
+            <span class="billing-customer-bill-count">${escapeHtml(billWord)}</span>
+            <span class="billing-customer-last-date">${escapeHtml(t('billingLastBill'))}: ${escapeHtml(formatDate(profile.latestBillDate))}</span>
+            <button type="button" class="billing-customer-view-btn" data-customer-action="open-profile" data-customer-id="${escapeHtml(profile.customerId)}">${escapeHtml(t('billingViewBills'))} →</button>
+          </div>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+function getCustomerProfileById(customerId) {
+  return getCustomerProfiles().find((profile) => profile.customerId === customerId) || null;
+}
+
+function openCustomerProfile(customerId) {
+  const profile = getCustomerProfileById(customerId);
+  if (!profile || !els.customerModal) return;
+  currentCustomerId = customerId;
+  customerHistoryPage = 1;
+  els.customerModal.classList.remove('hidden');
+  els.customerModal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('billing-customer-modal-open');
+  renderCustomerProfileModal();
+}
+
+function closeCustomerProfile() {
+  if (!els.customerModal) return;
+  els.customerModal.classList.add('hidden');
+  els.customerModal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('billing-customer-modal-open');
+  currentCustomerId = '';
+  customerHistoryPage = 1;
+}
+
+function renderCustomerProfileModal() {
+  if (!currentCustomerId || !els.customerModal || els.customerModal.classList.contains('hidden')) return;
+  const profile = getCustomerProfileById(currentCustomerId);
+  if (!profile) {
+    closeCustomerProfile();
+    return;
+  }
+
+  const initial = (profile.customerName || '?').trim().charAt(0).toUpperCase() || '?';
+  if (els.customerModalAvatar) els.customerModalAvatar.textContent = initial;
+  if (els.customerModalName) els.customerModalName.textContent = profile.customerName || t('billingUnknownCustomer');
+  if (els.customerModalPhone) els.customerModalPhone.textContent = profile.phone || profile.customerId;
+  if (els.customerModalBillCount) els.customerModalBillCount.textContent = String(profile.bills.length);
+  if (els.customerModalTotal) els.customerModalTotal.textContent = `Rs. ${formatMoney(profile.totalBilled)}`;
+  if (els.customerModalPaid) els.customerModalPaid.textContent = `Rs. ${formatMoney(profile.totalPaid)}`;
+  if (els.customerModalBalance) els.customerModalBalance.textContent = `Rs. ${formatMoney(profile.totalBalance)}`;
+
+  customerHistoryPage = renderPagination(els.customerHistoryPagination, 'customer-history', profile.bills.length, customerHistoryPage, CUSTOMER_HISTORY_PAGE_SIZE);
+  const start = (customerHistoryPage - 1) * CUSTOMER_HISTORY_PAGE_SIZE;
+  const pageBills = profile.bills.slice(start, start + CUSTOMER_HISTORY_PAGE_SIZE);
+  const from = profile.bills.length ? start + 1 : 0;
+  const to = Math.min(start + CUSTOMER_HISTORY_PAGE_SIZE, profile.bills.length);
+  if (els.customerModalRange) els.customerModalRange.textContent = t('billingShowingRange', { from, to, total: profile.bills.length });
+  if (els.customerModalBills) els.customerModalBills.innerHTML = pageBills.map(renderCustomerBillCard).join('');
 }
 
 function getFilteredBills() {
@@ -625,10 +926,12 @@ function getFilteredBills() {
 
   if (!query) return sorted;
 
+  const phoneQuery = normalizePhoneKey(query);
   return sorted.filter((bill) => {
     return String(bill.billNo || '').toLowerCase().includes(query)
       || String(bill.customerName || '').toLowerCase().includes(query)
-      || String(bill.phone || '').toLowerCase().includes(query);
+      || String(bill.phone || '').toLowerCase().includes(query)
+      || (phoneQuery && normalizePhoneKey(bill.phone || bill.customerId).includes(phoneQuery));
   });
 }
 
@@ -650,7 +953,22 @@ function renderSavedBills() {
   els.savedWrap.classList.toggle('hidden', !hasBills);
   els.savedCards?.classList.toggle('hidden', !hasBills);
 
-  els.savedBody.innerHTML = filtered.map((bill) => {
+  if (!hasBills) {
+    els.savedBody.innerHTML = '';
+    if (els.savedCards) els.savedCards.innerHTML = '';
+    if (els.savedPagination) {
+      els.savedPagination.innerHTML = '';
+      els.savedPagination.classList.add('hidden');
+    }
+    savedBillsPage = 1;
+    return;
+  }
+
+  savedBillsPage = renderPagination(els.savedPagination, 'saved-bills', filtered.length, savedBillsPage, SAVED_BILLS_PAGE_SIZE);
+  const start = (savedBillsPage - 1) * SAVED_BILLS_PAGE_SIZE;
+  const pageBills = filtered.slice(start, start + SAVED_BILLS_PAGE_SIZE);
+
+  els.savedBody.innerHTML = pageBills.map((bill) => {
     const normalized = normalizeBill(bill);
     const hasBalance = normalized.balanceAmount > 0;
     return `
@@ -658,6 +976,7 @@ function renderSavedBills() {
       <td class="px-3 py-3 font-semibold text-slate-900">${escapeHtml(normalized.billNo || '—')}</td>
       <td class="px-3 py-3">
         <div>${escapeHtml(normalized.customerName || '—')}</div>
+        <div class="mt-1 text-[11px] text-slate-500">${escapeHtml(normalized.phone || '')}</div>
         <div class="mt-1">${paymentStatusBadge(normalized)}</div>
       </td>
       <td class="px-3 py-3 whitespace-nowrap">${formatDate(normalized.billDate)}</td>
@@ -684,7 +1003,7 @@ function renderSavedBills() {
   }).join('');
 
   if (els.savedCards) {
-    els.savedCards.innerHTML = filtered.map((rawBill) => {
+    els.savedCards.innerHTML = pageBills.map((rawBill) => {
       const bill = normalizeBill(rawBill);
       const hasBalance = bill.balanceAmount > 0;
       return `
@@ -707,36 +1026,23 @@ function renderSavedBills() {
         </div>
 
         <div class="billing-saved-card-money">
-          <div>
-            <span>${escapeHtml(t('billingTotal'))}</span>
-            <strong>Rs. ${formatMoney(bill.totalAmount)}</strong>
-          </div>
-          <div>
-            <span>${escapeHtml(t('billingPaidShort'))}</span>
-            <strong>Rs. ${formatMoney(bill.paidAmount)}</strong>
-          </div>
-          <div class="${hasBalance ? 'billing-balance-due' : 'billing-balance-paid'}">
-            <span>${escapeHtml(t('billingBalance'))}</span>
-            <strong>Rs. ${formatMoney(bill.balanceAmount)}</strong>
-          </div>
+          <div><span>${escapeHtml(t('billingTotal'))}</span><strong>Rs. ${formatMoney(bill.totalAmount)}</strong></div>
+          <div><span>${escapeHtml(t('billingPaidShort'))}</span><strong>Rs. ${formatMoney(bill.paidAmount)}</strong></div>
+          <div class="${hasBalance ? 'billing-balance-due' : 'billing-balance-paid'}"><span>${escapeHtml(t('billingBalance'))}</span><strong>Rs. ${formatMoney(bill.balanceAmount)}</strong></div>
         </div>
 
         <div class="billing-saved-card-actions">
-          ${hasBalance ? `<button type="button" data-bill-action="collect-balance" data-id="${escapeHtml(bill.id)}"
-                  class="billing-mobile-action bg-emerald-600 text-white">${escapeHtml(t('billingCollectBalance'))}</button>` : ''}
-          <button type="button" data-bill-action="preview" data-id="${escapeHtml(bill.id)}"
-                  class="billing-mobile-action border border-slate-300 bg-white text-slate-700">${escapeHtml(t('billingPreview'))}</button>
-          <button type="button" data-bill-action="edit" data-id="${escapeHtml(bill.id)}"
-                  class="billing-mobile-action bg-brand-600 text-white">${escapeHtml(t('btnEdit'))}</button>
-          <button type="button" data-bill-action="pdf" data-id="${escapeHtml(bill.id)}"
-                  class="billing-mobile-action bg-violet-600 text-white">PDF</button>
-          <button type="button" data-bill-action="delete" data-id="${escapeHtml(bill.id)}"
-                  class="billing-mobile-action bg-red-600 text-white">${escapeHtml(t('btnDelete'))}</button>
+          ${hasBalance ? `<button type="button" data-bill-action="collect-balance" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-emerald-600 text-white">${escapeHtml(t('billingCollectBalance'))}</button>` : ''}
+          <button type="button" data-bill-action="preview" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action border border-slate-300 bg-white text-slate-700">${escapeHtml(t('billingPreview'))}</button>
+          <button type="button" data-bill-action="edit" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-brand-600 text-white">${escapeHtml(t('btnEdit'))}</button>
+          <button type="button" data-bill-action="pdf" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-violet-600 text-white">PDF</button>
+          <button type="button" data-bill-action="delete" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-red-600 text-white">${escapeHtml(t('btnDelete'))}</button>
         </div>
       </article>`;
     }).join('');
   }
 }
+
 function renderPreviewItems(bill) {
   const active = (bill.items || []).filter((item) => Number(item.qty) > 0);
   const rows = [...active];
@@ -749,16 +1055,16 @@ function renderPreviewItems(bill) {
       return `<tr><td>${index + 1}</td><td>&nbsp;</td><td></td><td></td><td></td></tr>`;
     }
 
-    const amount = Number(item.amount) || 0;
-    const [rs, cts] = amount.toFixed(2).split('.');
+    const unitPrice = Number(item.unitPrice) || 0;
+    const amount = Number(item.amount) || (Number(item.qty) || 0) * unitPrice;
 
     return `
       <tr>
         <td>${index + 1}</td>
         <td>${escapeHtml(translateItem(item))}</td>
         <td>${escapeHtml(String(item.qty))}</td>
-        <td>${Number(rs).toLocaleString('en-LK')}</td>
-        <td>${cts}</td>
+        <td>${formatMoney(unitPrice)}</td>
+        <td>${formatMoney(amount)}</td>
       </tr>
     `;
   }).join('');
@@ -778,7 +1084,17 @@ function renderPreview(bill) {
   els.previewAdvance.textContent = formatMoney(normalized.paidAmount);
   els.previewBalance.textContent = formatMoney(normalized.balanceAmount);
   if (els.previewPaymentStatus) els.previewPaymentStatus.textContent = getPaymentStatusLabel(normalized);
-  renderPreviewItems(bill);
+
+  // Show the paid seal only when the bill is fully settled.
+  if (els.paidSeal) {
+    const isPaidInFull = normalized.totalAmount > 0
+      && normalized.paidAmount >= normalized.totalAmount
+      && normalized.balanceAmount <= 0;
+    els.paidSeal.classList.toggle('is-visible', isPaidInFull);
+    els.paidSeal.setAttribute('aria-hidden', isPaidInFull ? 'false' : 'true');
+  }
+
+  renderPreviewItems(normalized);
 }
 
 function fitPreviewPaper() {
@@ -990,7 +1306,9 @@ function renderItemLanguage() {
 
 function renderAll() {
   renderStats();
+  renderCustomerProfiles();
   renderSavedBills();
+  renderCustomerProfileModal();
   renderItemLanguage();
 }
 
@@ -1005,11 +1323,18 @@ function getBillById(id) {
 }
 
 async function handleSave(openAfterSave) {
+  if (saveInProgress) return;
+
   const bill = collectFormBill();
   if (!validateBill(bill)) return;
 
-  const saved = await saveBill(bill);
-  if (saved && openAfterSave) openPreview(bill);
+  setSaveButtonsLoading(true, openAfterSave);
+  try {
+    const saved = await saveBill(bill);
+    if (saved && openAfterSave) openPreview(normalizeBill(getBillById(bill.id) || bill));
+  } finally {
+    setSaveButtonsLoading(false, openAfterSave);
+  }
 }
 
 function handleSavedActions(event) {
@@ -1030,6 +1355,7 @@ function handleSavedActions(event) {
   if (action === 'collect-balance' && bill) collectBillBalance(bill);
   if (action === 'edit' && bill) {
     closePreview();
+    closeCustomerProfile();
     fillForm(bill);
   }
   if (action === 'pdf' && bill) {
@@ -1060,7 +1386,14 @@ function initEvents() {
     updateFormTotals();
     if (els.paymentType.value === 'advance') window.setTimeout(() => els.advance.focus(), 0);
   });
-  els.search.addEventListener('input', renderSavedBills);
+  els.search.addEventListener('input', () => {
+    savedBillsPage = 1;
+    renderSavedBills();
+  });
+  els.customerSearch?.addEventListener('input', () => {
+    customerPage = 1;
+    renderCustomerProfiles();
+  });
 
   els.itemSelect?.addEventListener('change', () => {
     const key = els.itemSelect.value;
@@ -1086,6 +1419,47 @@ function initEvents() {
   });
   els.savedBody.addEventListener('click', handleSavedActions);
   els.savedCards?.addEventListener('click', handleSavedActions);
+
+  const handlePaginationClick = (event) => {
+    const button = event.target.closest('[data-page-scope][data-page]');
+    if (!button || button.disabled) return;
+    const page = Number(button.dataset.page) || 1;
+    const scope = button.dataset.pageScope;
+    if (scope === 'customers') {
+      customerPage = page;
+      renderCustomerProfiles();
+      els.customerProfiles?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    if (scope === 'saved-bills') {
+      savedBillsPage = page;
+      renderSavedBills();
+      els.savedWrap?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    if (scope === 'customer-history') {
+      customerHistoryPage = page;
+      renderCustomerProfileModal();
+    }
+  };
+
+  els.customerPagination?.addEventListener('click', handlePaginationClick);
+  els.savedPagination?.addEventListener('click', handlePaginationClick);
+
+  els.customerProfiles?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-customer-action="open-profile"]');
+    if (!button) return;
+    openCustomerProfile(button.dataset.customerId || '');
+  });
+
+  els.customerModal?.addEventListener('click', (event) => {
+    const closeButton = event.target.closest('[data-customer-action="close-profile"]');
+    if (closeButton) {
+      closeCustomerProfile();
+      return;
+    }
+    handlePaginationClick(event);
+    handleSavedActions(event);
+  });
+
   els.previewModal.addEventListener('click', handleSavedActions);
 
   els.previewEditBtn.addEventListener('click', () => {
@@ -1104,7 +1478,12 @@ function initEvents() {
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !els.previewModal.classList.contains('hidden')) closePreview();
+    if (event.key !== 'Escape') return;
+    if (!els.previewModal.classList.contains('hidden')) {
+      closePreview();
+      return;
+    }
+    if (els.customerModal && !els.customerModal.classList.contains('hidden')) closeCustomerProfile();
   });
 
   let previewResizeTimer = null;
@@ -1134,8 +1513,7 @@ function initEvents() {
       els.formTitle.textContent = t('billingNewBill');
     }
 
-    els.savePreviewBtn.textContent = currentBillId ? t('billingUpdatePreview') : t('billingSavePreview');
-    els.saveBtn.textContent = currentBillId ? t('billingUpdate') : t('billingSave');
+    updateSaveButtonLabels();
 
     renderAll();
   });
