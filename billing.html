@@ -80,23 +80,15 @@
   </header>
 
   <main class="billing-main max-w-7xl mx-auto px-3 py-4 sm:px-4 lg:px-6 space-y-4 safe-x">
-    <!-- Stats -->
-    <section class="billing-stat-grid grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+    <!-- Simple counters only: no business-wide money totals -->
+    <section class="billing-stat-grid grid grid-cols-2 gap-2 sm:gap-3">
       <div class="billing-stat-card bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <p class="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide" data-i18n="billingStatBills">Saved Bills</p>
         <p id="billingStatCount" class="mt-1 text-2xl font-bold text-slate-900">0</p>
       </div>
-      <div class="billing-stat-card bg-emerald-50 rounded-xl shadow-sm border border-emerald-200 p-4">
-        <p class="text-[10px] sm:text-xs font-medium text-emerald-700 uppercase tracking-wide" data-i18n="billingStatTotal">Total Billed</p>
-        <p id="billingStatTotal" class="mt-1 text-xl sm:text-2xl font-bold text-emerald-800">Rs. 0.00</p>
-      </div>
-      <div class="billing-stat-card bg-amber-50 rounded-xl shadow-sm border border-amber-200 p-4">
-        <p class="text-[10px] sm:text-xs font-medium text-amber-700 uppercase tracking-wide" data-i18n="billingStatAdvance">Total Received</p>
-        <p id="billingStatAdvance" class="mt-1 text-xl sm:text-2xl font-bold text-amber-800">Rs. 0.00</p>
-      </div>
-      <div class="billing-stat-card bg-violet-50 rounded-xl shadow-sm border border-violet-200 p-4">
-        <p class="text-[10px] sm:text-xs font-medium text-violet-700 uppercase tracking-wide" data-i18n="billingStatBalance">Outstanding Balance</p>
-        <p id="billingStatBalance" class="mt-1 text-xl sm:text-2xl font-bold text-violet-800">Rs. 0.00</p>
+      <div class="billing-stat-card bg-sky-50 rounded-xl shadow-sm border border-sky-200 p-4">
+        <p class="text-[10px] sm:text-xs font-medium text-sky-700 uppercase tracking-wide" data-i18n="billingStatCustomers">Customer Profiles</p>
+        <p id="billingStatCustomers" class="mt-1 text-2xl font-bold text-sky-800">0</p>
       </div>
     </section>
 
@@ -138,10 +130,11 @@
           </div>
 
           <div>
-            <label for="billPhone" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingTelephone">Telephone No.</label>
-            <input id="billPhone" type="tel"
+            <label for="billPhone" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="billingTelephoneCustomerId">Telephone No. / Customer ID</label>
+            <input id="billPhone" type="tel" required
                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                    placeholder="07X XXX XXXX" />
+            <p class="mt-1 text-[11px] text-slate-500" data-i18n="billingPhoneCustomerHint">The same phone number automatically links all bills to one customer profile.</p>
           </div>
 
           <div>
@@ -241,6 +234,33 @@
       </form>
     </section>
 
+    <!-- Customer profiles -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-4 py-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900" data-i18n="billingCustomerProfiles">Customer Profiles</h2>
+          <p class="text-sm text-slate-500 mt-0.5" data-i18n="billingCustomerProfilesHint">Phone number is the Customer ID. Bills with the same phone number stay together in one profile.</p>
+        </div>
+
+        <div class="relative w-full sm:w-72">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input id="billingCustomerSearch" type="search"
+                 class="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                 data-i18n-placeholder="billingCustomerSearchPlaceholder" placeholder="Search customer name or phone..." />
+        </div>
+      </div>
+
+      <div id="billingCustomerEmpty" class="px-6 py-10 text-center">
+        <p id="billingCustomerEmptyTitle" class="text-sm font-medium text-slate-600" data-i18n="billingCustomerEmpty">No customer profiles yet.</p>
+        <p id="billingCustomerEmptyHint" class="text-sm text-slate-400 mt-1" data-i18n="billingCustomerEmptyHint">Save a bill with a phone number to create a customer profile automatically.</p>
+      </div>
+
+      <div id="billingCustomerProfiles" class="billing-customer-grid hidden"></div>
+      <div id="billingCustomerPagination" class="billing-pagination hidden" aria-label="Customer profiles pagination"></div>
+    </section>
+
     <!-- Saved bills -->
     <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       <div class="px-4 py-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -281,8 +301,47 @@
           <tbody id="billingSavedBody" class="divide-y divide-slate-200 bg-white"></tbody>
         </table>
       </div>
+      <div id="billingSavedPagination" class="billing-pagination hidden" aria-label="Saved bills pagination"></div>
     </section>
   </main>
+
+  <!-- Customer Profile / Bill History Modal -->
+  <div id="billingCustomerModal" class="billing-customer-modal hidden" aria-hidden="true">
+    <div class="billing-customer-modal-backdrop" data-customer-action="close-profile"></div>
+    <section class="billing-customer-modal-panel" role="dialog" aria-modal="true" aria-labelledby="billingCustomerModalName">
+      <header class="billing-customer-modal-header">
+        <div id="billingCustomerModalAvatar" class="billing-customer-avatar billing-customer-modal-avatar" aria-hidden="true">?</div>
+        <div class="min-w-0 flex-1">
+          <p class="billing-customer-modal-kicker" data-i18n="billingCustomerProfile">Customer Profile</p>
+          <h3 id="billingCustomerModalName" class="billing-customer-modal-name">Customer</h3>
+          <div class="billing-customer-modal-id-line">
+            <span data-i18n="billingCustomerId">Customer ID / Phone</span>
+            <strong id="billingCustomerModalPhone">—</strong>
+          </div>
+        </div>
+        <button type="button" class="billing-customer-modal-close" data-customer-action="close-profile" aria-label="Close">×</button>
+      </header>
+
+      <div class="billing-customer-modal-summary">
+        <div><span data-i18n="billingBillsCount">Bills</span><strong id="billingCustomerModalBillCount">0</strong></div>
+        <div><span data-i18n="billingAllBillsTotal">All Bills Total</span><strong id="billingCustomerModalTotal">Rs. 0.00</strong></div>
+        <div><span data-i18n="billingPaidShort">Paid</span><strong id="billingCustomerModalPaid">Rs. 0.00</strong></div>
+        <div><span data-i18n="billingBalance">Balance</span><strong id="billingCustomerModalBalance">Rs. 0.00</strong></div>
+      </div>
+
+      <div class="billing-customer-modal-body">
+        <div class="billing-customer-history-heading">
+          <div>
+            <h4 data-i18n="billingBillHistory">Bill History</h4>
+            <p id="billingCustomerModalRange"></p>
+          </div>
+        </div>
+        <div id="billingCustomerModalBills" class="billing-customer-history-list"></div>
+      </div>
+
+      <footer id="billingCustomerHistoryPagination" class="billing-pagination billing-customer-modal-pagination"></footer>
+    </section>
+  </div>
 
   <!-- Preview Modal -->
   <div id="billingPreviewModal" class="billing-preview-modal hidden" aria-hidden="true">
@@ -342,19 +401,19 @@
 
           <table class="billing-paper-table">
             <colgroup>
-              <col style="width:10%">
-              <col style="width:48%">
-              <col style="width:12%">
-              <col style="width:22%">
               <col style="width:8%">
+              <col style="width:40%">
+              <col style="width:10%">
+              <col style="width:20%">
+              <col style="width:22%">
             </colgroup>
             <thead>
               <tr>
                 <th data-i18n="billingNoShort">No.</th>
                 <th data-i18n="billingDescription">Description</th>
                 <th data-i18n="billingQty">Qty</th>
-                <th data-i18n="billingRsShort">Rs.</th>
-                <th data-i18n="billingCtsShort">Cts.</th>
+                <th data-i18n="billingUnitPrice">Unit Price (Rs.)</th>
+                <th data-i18n="billingAmount">Amount (Rs.)</th>
               </tr>
             </thead>
             <tbody id="billingPreviewItems"></tbody>
@@ -372,6 +431,12 @@
               <div class="billing-paper-balance"><span data-i18n="billingBalance">Balance</span><strong id="previewBalance">0.00</strong></div>
             </div>
           </section>
+
+          <img id="billingPaidSeal"
+               src="assets/paid-seal.png"
+               alt="Paid"
+               class="billing-paid-seal"
+               aria-hidden="true" />
 
           <footer class="billing-paper-footer">
             <p data-i18n="billingTerms">
