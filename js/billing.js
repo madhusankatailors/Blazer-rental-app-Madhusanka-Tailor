@@ -25,6 +25,7 @@ let currentBillId = '';
 let currentPreviewBill = null;
 let pendingWrites = 0;
 let syncState = 'loading';
+let itemRowCounter = 0;
 
 const $ = (id) => document.getElementById(id);
 
@@ -160,36 +161,11 @@ function hideLoading() {
 }
 
 function createItemRows() {
-  els.itemsBody.innerHTML = BILL_ITEMS.map((item, index) => `
-    <tr data-item-key="${escapeHtml(item.key)}" class="billing-entry-row">
-      <td class="billing-item-index px-3 py-2 text-slate-500">${index + 1}</td>
-      <td class="billing-item-description px-3 py-2 font-medium text-slate-800">
-        ${item.custom
-          ? `<input type="text" class="billing-custom-name w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    placeholder="${escapeHtml(t('billingOtherItemPlaceholder'))}" aria-label="${escapeHtml(t('billingOtherItemName'))}" />`
-          : `<span class="billing-item-name">${escapeHtml(getLocaleSafe() === 'si' ? item.si : item.en)}</span>`}
-      </td>
-      <td class="billing-entry-field billing-qty-cell px-3 py-2">
-        <span class="billing-mobile-field-label">${escapeHtml(t('billingQty'))}</span>
-        <input type="number" min="0" step="1" value="" placeholder="0"
-               class="billing-qty w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-      </td>
-      <td class="billing-entry-field billing-price-cell px-3 py-2">
-        <span class="billing-mobile-field-label">${escapeHtml(t('billingUnitPrice'))}</span>
-        <input type="number" min="0" step="0.01" value="" placeholder="0.00"
-               class="billing-price w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-      </td>
-      <td class="billing-entry-field billing-amount-cell px-3 py-2 text-right font-semibold text-slate-800">
-        <span class="billing-mobile-field-label">${escapeHtml(t('billingAmount'))}</span>
-        <span class="billing-row-amount">0.00</span>
-      </td>
-    </tr>
-  `).join('');
-
-  els.itemsBody.querySelectorAll('input').forEach((input) => {
-    input.addEventListener('input', updateFormTotals);
-  });
+  if (els.itemsBody) els.itemsBody.innerHTML = '';
+  populateBillingItemSelect();
+  renderSelectedBillingItems();
 }
+
 function getBillingItemRows() {
   return els.itemsBody ? [...els.itemsBody.querySelectorAll('tr.billing-entry-row')] : [];
 }
@@ -205,105 +181,157 @@ function getBillingRowLabel(row) {
   if (customName) return customName;
   const key = row.dataset.itemKey || '';
   const def = BILL_ITEMS.find((item) => item.key === key);
-  return row.querySelector('.billing-item-name')?.textContent?.trim()
-    || (def ? (getLocaleSafe() === 'si' ? def.si : def.en) : key);
+  return def ? (getLocaleSafe() === 'si' ? def.si : def.en) : key;
+}
+
+function createBillingRowId() {
+  itemRowCounter += 1;
+  return `bill-item-${Date.now()}-${itemRowCounter}`;
 }
 
 function populateBillingItemSelect() {
   if (!els.itemSelect) return;
 
-  const previous = els.itemSelect.value;
   els.itemSelect.innerHTML = '';
-
   const placeholder = document.createElement('option');
   placeholder.value = '';
   placeholder.textContent = t('billingSelectItemPlaceholder');
   els.itemSelect.appendChild(placeholder);
 
-  getBillingItemRows().forEach((row) => {
+  BILL_ITEMS.forEach((item) => {
     const option = document.createElement('option');
-    option.value = row.dataset.itemKey || '';
-    option.textContent = getBillingRowLabel(row);
+    option.value = item.key;
+    option.textContent = getLocaleSafe() === 'si' ? item.si : item.en;
     els.itemSelect.appendChild(option);
   });
 
-  if (previous && getBillingItemRows().some((row) => row.dataset.itemKey === previous)) {
-    els.itemSelect.value = previous;
-  }
+  els.itemSelect.value = '';
 }
 
-function showBillingItem(key, focus = false) {
-  const rows = getBillingItemRows();
-  rows.forEach((row) => {
-    const isCurrent = compactBillingQuery.matches && Boolean(key) && row.dataset.itemKey === key;
-    row.classList.toggle('billing-mobile-current', isCurrent);
+function makeBillingItemRow(key, data = {}) {
+  const itemDef = BILL_ITEMS.find((item) => item.key === key) || {
+    key,
+    en: data.nameEn || key,
+    si: data.nameSi || data.nameEn || key,
+    custom: key === 'other',
+  };
+  const rowId = createBillingRowId();
+  const customName = itemDef.custom
+    ? String(data.nameEn && data.nameEn !== itemDef.en ? data.nameEn : data.nameSi && data.nameSi !== itemDef.si ? data.nameSi : '')
+    : '';
+  const qty = Number(data.qty) > 0 ? Number(data.qty) : '';
+  const unitPrice = Number(data.unitPrice) > 0 ? Number(data.unitPrice) : '';
+
+  const row = document.createElement('tr');
+  row.dataset.itemKey = itemDef.key;
+  row.dataset.rowId = rowId;
+  row.className = 'billing-entry-row billing-added-row';
+  row.innerHTML = `
+    <td class="billing-item-index px-3 py-2 text-slate-500"></td>
+    <td class="billing-item-description px-3 py-2 font-medium text-slate-800">
+      ${itemDef.custom
+        ? `<label class="billing-mobile-field-label billing-custom-label">${escapeHtml(t('billingOtherItemName'))}</label>
+           <input type="text" class="billing-custom-name w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  placeholder="${escapeHtml(t('billingOtherItemPlaceholder'))}" aria-label="${escapeHtml(t('billingOtherItemName'))}" value="${escapeHtml(customName)}" />`
+        : `<span class="billing-item-name">${escapeHtml(getLocaleSafe() === 'si' ? itemDef.si : itemDef.en)}</span>`}
+    </td>
+    <td class="billing-entry-field billing-qty-cell px-3 py-2">
+      <span class="billing-mobile-field-label">${escapeHtml(t('billingQty'))}</span>
+      <input type="number" min="0" step="1" value="${escapeHtml(String(qty))}" placeholder="0"
+             class="billing-qty w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+    </td>
+    <td class="billing-entry-field billing-price-cell px-3 py-2">
+      <span class="billing-mobile-field-label">${escapeHtml(t('billingUnitPrice'))}</span>
+      <input type="number" min="0" step="0.01" value="${escapeHtml(String(unitPrice))}" placeholder="0.00"
+             class="billing-price w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+    </td>
+    <td class="billing-entry-field billing-amount-cell px-3 py-2 text-right font-semibold text-slate-800">
+      <span class="billing-mobile-field-label">${escapeHtml(t('billingAmount'))}</span>
+      <span class="billing-row-amount">0.00</span>
+    </td>
+    <td class="billing-item-action-cell px-3 py-2 text-right">
+      <button type="button" class="billing-remove-item-btn" data-remove-item="${escapeHtml(rowId)}" aria-label="${escapeHtml(t('billingRemoveItem'))}" title="${escapeHtml(t('billingRemoveItem'))}">
+        <span aria-hidden="true">×</span><span class="billing-remove-item-text">${escapeHtml(t('billingRemoveItem'))}</span>
+      </button>
+    </td>`;
+
+  row.querySelectorAll('input').forEach((input) => input.addEventListener('input', updateFormTotals));
+  return row;
+}
+
+function reindexBillingRows() {
+  getBillingItemRows().forEach((row, index) => {
+    const indexCell = row.querySelector('.billing-item-index');
+    if (indexCell) indexCell.textContent = String(index + 1);
   });
+}
 
-  if (els.itemSelect) els.itemSelect.value = key || '';
+function focusBillingRow(rowId) {
+  const row = getBillingItemRows().find((entry) => entry.dataset.rowId === rowId);
+  if (!row) return;
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const target = row.querySelector('.billing-custom-name') || row.querySelector('.billing-qty');
+  window.setTimeout(() => target?.focus({ preventScroll: true }), 180);
+}
 
-  if (focus && key) {
-    rows.find((row) => row.dataset.itemKey === key)
-      ?.querySelector('.billing-qty')
-      ?.focus({ preventScroll: true });
-  }
+function addBillingItem(key, data = {}, focus = true) {
+  if (!key || !els.itemsBody) return null;
+  const row = makeBillingItemRow(key, data);
+  els.itemsBody.appendChild(row);
+  reindexBillingRows();
+  updateFormTotals();
+  if (focus) focusBillingRow(row.dataset.rowId);
+  return row;
+}
+
+function removeBillingItem(rowId) {
+  const row = getBillingItemRows().find((entry) => entry.dataset.rowId === rowId);
+  if (!row) return;
+  row.remove();
+  reindexBillingRows();
+  updateFormTotals();
 }
 
 function renderSelectedBillingItems() {
   if (!els.selectedItemsSummary) return;
-
-  const activeRows = getBillingItemRows().filter(billingRowIsActive);
-  if (!activeRows.length) {
+  const rows = getBillingItemRows();
+  if (!rows.length) {
     els.selectedItemsSummary.innerHTML = `<span class="billing-selected-empty">${escapeHtml(t('billingNoSelectedItems'))}</span>`;
     return;
   }
 
-  els.selectedItemsSummary.innerHTML = activeRows.map((row) => {
-    const key = row.dataset.itemKey || '';
-    const name = getBillingRowLabel(row);
+  els.selectedItemsSummary.innerHTML = rows.map((row, index) => {
+    const rowId = row.dataset.rowId || '';
+    const name = getBillingRowLabel(row) || t('billingOtherItemName');
     const qty = Number(row.querySelector('.billing-qty')?.value || 0);
     const price = Number(row.querySelector('.billing-price')?.value || 0);
     const amount = qty * price;
-
     return `
-      <button type="button" class="billing-selected-item-chip" data-picker-item="${escapeHtml(key)}" title="${escapeHtml(name)}">
-        <span>${escapeHtml(name)}</span>
-        <span>× ${escapeHtml(String(qty || 0))}</span>
-        <span>Rs. ${formatMoney(amount)}</span>
-      </button>`;
+      <span class="billing-selected-item-chip" data-row-chip="${escapeHtml(rowId)}">
+        <button type="button" class="billing-chip-main" data-focus-row="${escapeHtml(rowId)}" title="${escapeHtml(name)}">
+          <span class="billing-chip-order">${index + 1}</span>
+          <span>${escapeHtml(name)}</span>
+          <span>× ${escapeHtml(String(qty || 0))}</span>
+          <span>Rs. ${formatMoney(amount)}</span>
+        </button>
+        <button type="button" class="billing-chip-remove" data-remove-row="${escapeHtml(rowId)}" aria-label="${escapeHtml(t('billingRemoveItem'))}" title="${escapeHtml(t('billingRemoveItem'))}">×</button>
+      </span>`;
   }).join('');
 }
 
-function refreshBillingItemPicker(selectFirstActive = false) {
+function refreshBillingItemPicker() {
   populateBillingItemSelect();
+  reindexBillingRows();
   renderSelectedBillingItems();
-
-  if (!compactBillingQuery.matches) {
-    showBillingItem('');
-    return;
-  }
-
-  const current = els.itemSelect?.value || '';
-  if (current && !selectFirstActive) {
-    showBillingItem(current);
-    return;
-  }
-
-  if (selectFirstActive) {
-    const firstActive = getBillingItemRows().find(billingRowIsActive);
-    showBillingItem(firstActive?.dataset.itemKey || '');
-  } else {
-    showBillingItem('');
-  }
 }
 
 function getFormItems() {
-  return [...els.itemsBody.querySelectorAll('tr')].map((row) => {
-    const key = row.dataset.itemKey;
+  return getBillingItemRows().map((row) => {
+    const key = row.dataset.itemKey || '';
     const itemDef = BILL_ITEMS.find((item) => item.key === key);
     const qtyRaw = row.querySelector('.billing-qty')?.value.trim() || '';
     const priceRaw = row.querySelector('.billing-price')?.value.trim() || '';
     const customName = row.querySelector('.billing-custom-name')?.value.trim() || '';
-
     const qty = qtyRaw === '' ? 0 : Math.max(0, Number(qtyRaw) || 0);
     const unitPrice = priceRaw === '' ? 0 : Math.max(0, Number(priceRaw) || 0);
     const fallbackEn = itemDef?.en || key;
@@ -411,7 +439,7 @@ function updateFormTotals() {
 }
 
 function collectFormBill() {
-  const items = getFormItems();
+  const items = getFormItems().filter((item) => item.qty > 0 || item.unitPrice > 0);
   const paymentType = els.paymentType?.value || 'unpaid';
   const totals = getTotals(items, paymentType, els.advance.value);
   const existing = bills.find((bill) => bill.id === currentBillId);
@@ -453,9 +481,13 @@ function validateBill(bill) {
     return false;
   }
 
-  const otherItem = bill.items.find((item) => item.key === 'other' && item.qty > 0);
-  if (otherItem && (!otherItem.nameEn || otherItem.nameEn === 'Other / Custom Item')) {
-    els.itemsBody.querySelector('[data-item-key="other"] .billing-custom-name')?.focus();
+  const invalidOtherRow = getBillingItemRows().find((row) =>
+    row.dataset.itemKey === 'other'
+    && billingRowIsActive(row)
+    && !row.querySelector('.billing-custom-name')?.value.trim()
+  );
+  if (invalidOtherRow) {
+    invalidOtherRow.querySelector('.billing-custom-name')?.focus();
     showToast(t('billingErrorOtherItem'), 'error');
     return false;
   }
@@ -527,19 +559,15 @@ function resetForm() {
   els.advance.value = '';
   updatePaymentControls();
 
-  [...els.itemsBody.querySelectorAll('tr')].forEach((row) => {
-    row.querySelector('.billing-qty').value = '';
-    row.querySelector('.billing-price').value = '';
-    const customName = row.querySelector('.billing-custom-name');
-    if (customName) customName.value = '';
-  });
+  if (els.itemsBody) els.itemsBody.innerHTML = '';
+  if (els.itemSelect) els.itemSelect.value = '';
 
   els.formTitle.textContent = t('billingNewBill');
   els.savePreviewBtn.textContent = t('billingSavePreview');
   els.saveBtn.textContent = t('billingSave');
   updatePaymentControls();
   updateFormTotals();
-  refreshBillingItemPicker(false);
+  refreshBillingItemPicker();
 }
 
 function fillForm(bill) {
@@ -557,23 +585,17 @@ function fillForm(bill) {
   els.advance.value = normalized.paymentType === 'unpaid' ? '' : normalized.paidAmount;
   updatePaymentControls();
 
-  const byKey = new Map((bill.items || []).map((item) => [item.key, item]));
-  [...els.itemsBody.querySelectorAll('tr')].forEach((row) => {
-    const item = byKey.get(row.dataset.itemKey);
-    row.querySelector('.billing-qty').value = Number(item?.qty) > 0 ? item.qty : '';
-    row.querySelector('.billing-price').value = Number(item?.unitPrice) > 0 ? item.unitPrice : '';
-    const customName = row.querySelector('.billing-custom-name');
-    if (customName) {
-      const customValue = item?.nameEn && item.nameEn !== 'Other / Custom Item' ? item.nameEn : '';
-      customName.value = customValue;
-    }
-  });
+  if (els.itemsBody) els.itemsBody.innerHTML = '';
+  (bill.items || [])
+    .filter((item) => Number(item?.qty) > 0 || Number(item?.unitPrice) > 0)
+    .forEach((item) => addBillingItem(item.key || 'other', item, false));
+  reindexBillingRows();
 
   els.formTitle.textContent = t('billingEditBill', { number: bill.billNo });
   els.savePreviewBtn.textContent = t('billingUpdatePreview');
   els.saveBtn.textContent = t('billingUpdate');
   updateFormTotals();
-  refreshBillingItemPicker(true);
+  refreshBillingItemPicker();
 
   document.getElementById('billingFormSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   window.setTimeout(() => els.billNo.focus({ preventScroll: true }), 250);
@@ -956,7 +978,9 @@ function renderItemLanguage() {
   });
 
   updatePaymentControls();
-  refreshBillingItemPicker(false);
+  populateBillingItemSelect();
+  reindexBillingRows();
+  renderSelectedBillingItems();
 
   if (currentPreviewBill) {
     renderPreview(currentPreviewBill);
@@ -1023,7 +1047,10 @@ function initEvents() {
 
   els.saveBtn.addEventListener('click', () => handleSave(false));
   els.clearBtn.addEventListener('click', () => {
-    if (window.confirm(t('billingConfirmClear'))) resetForm();
+    if (!window.confirm(t('billingConfirmClear'))) return;
+    resetForm();
+    document.getElementById('billingFormSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => els.billNo.focus({ preventScroll: true }), 180);
   });
 
   els.advance.addEventListener('input', updateFormTotals);
@@ -1036,13 +1063,26 @@ function initEvents() {
   els.search.addEventListener('input', renderSavedBills);
 
   els.itemSelect?.addEventListener('change', () => {
-    showBillingItem(els.itemSelect.value, true);
+    const key = els.itemSelect.value;
+    if (!key) return;
+    addBillingItem(key, {}, true);
+    els.itemSelect.value = '';
   });
 
   els.selectedItemsSummary?.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-picker-item]');
-    if (!button) return;
-    showBillingItem(button.dataset.pickerItem || '', true);
+    const remove = event.target.closest('[data-remove-row]');
+    if (remove) {
+      removeBillingItem(remove.dataset.removeRow || '');
+      return;
+    }
+    const focus = event.target.closest('[data-focus-row]');
+    if (focus) focusBillingRow(focus.dataset.focusRow || '');
+  });
+
+  els.itemsBody?.addEventListener('click', (event) => {
+    const remove = event.target.closest('[data-remove-item]');
+    if (!remove) return;
+    removeBillingItem(remove.dataset.removeItem || '');
   });
   els.savedBody.addEventListener('click', handleSavedActions);
   els.savedCards?.addEventListener('click', handleSavedActions);
@@ -1078,7 +1118,7 @@ function initEvents() {
   window.addEventListener('resize', handlePreviewResize, { passive: true });
   window.addEventListener('orientationchange', handlePreviewResize, { passive: true });
 
-  const handleCompactBillingChange = () => refreshBillingItemPicker(false);
+  const handleCompactBillingChange = () => refreshBillingItemPicker();
   if (typeof compactBillingQuery.addEventListener === 'function') {
     compactBillingQuery.addEventListener('change', handleCompactBillingChange);
   } else if (typeof compactBillingQuery.addListener === 'function') {
