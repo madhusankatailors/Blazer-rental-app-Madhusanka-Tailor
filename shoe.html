@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <base href="./">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Shoe Sales & Stock | Madhusanka Tailors</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/shoe.css">
+  <style>
+    :root {
+      --ink: #18342a;
+      --muted: #687c74;
+      --line: #dce8e2;
+      --soft: #f4f9f6;
+      --green: #117a57;
+      --green-dark: #0b543e;
+      --mint: #e8f6ef;
+      --danger: #b84343
+    }
+
+    .history-tools {
+      display: grid;
+      grid-template-columns: 9rem minmax(14rem, 24rem);
+      gap: .6rem
+    }
+
+    .shoe-row.returned {
+      background: #f5f7f6;
+      border-style: dashed;
+      opacity: .8
+    }
+
+    .return-pill {
+      border-radius: 999px;
+      background: #e2e8f0;
+      color: #475569;
+      padding: .22rem .5rem;
+      font-size: .62rem;
+      font-weight: 850;
+      text-transform: uppercase
+    }
+
+    .backup-preview {
+      margin-top: 1rem;
+      border: 1px solid var(--line);
+      border-radius: .85rem;
+      background: var(--soft);
+      padding: .9rem
+    }
+
+    .preview-counts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .6rem
+    }
+
+    .preview-counts span {
+      border-radius: 999px;
+      background: var(--mint);
+      padding: .45rem .7rem;
+      font-size: .75rem;
+      color: var(--green-dark)
+    }
+
+    .stock-group {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      background: #fff;
+      transition: .18s
+    }
+
+    .stock-group:hover {
+      border-color: #a6d6c3;
+      box-shadow: 0 7px 22px rgba(20, 45, 36, .07)
+    }
+
+    .stock-group-head {
+      display: grid;
+      width: 100%;
+      grid-template-columns: 4.25rem minmax(0, 1fr) auto 2rem;
+      align-items: center;
+      gap: .9rem;
+      padding: .9rem
+    }
+
+    .expand-icon {
+      display: grid;
+      height: 2rem;
+      width: 2rem;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--mint);
+      color: var(--green-dark);
+      font-size: 1.15rem;
+      font-weight: 900
+    }
+
+    .stock-variants {
+      border-top: 1px solid var(--line);
+      background: #f8fbf9;
+      padding: .45rem .9rem .9rem
+    }
+
+    .stock-variant {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      border-bottom: 1px solid #e6eee9;
+      padding: .75rem .25rem
+    }
+
+    .stock-variant:last-child {
+      border: 0
+    }
+
+    .stock-variant span,
+    .stock-variant small {
+      display: block;
+      margin-top: .15rem;
+      font-size: .72rem;
+      color: var(--muted)
+    }
+
+    .variant-actions {
+      display: flex;
+      flex: 0 0 auto;
+      gap: .4rem
+    }
+
+    .variant-actions button {
+      min-height: 2.2rem;
+      padding: .45rem .7rem
+    }
+
+    .danger-zone {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 1.25rem;
+      border-top: 1px solid #fecaca;
+      padding-top: 1rem
+    }
+
+    .danger-zone b {
+      color: #991b1b
+    }
+
+    .danger-zone p {
+      margin-top: .2rem;
+      font-size: .75rem;
+      color: #64748b
+    }
+
+    .sale-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: .45rem;
+      margin-top: .65rem
+    }
+
+    .sale-card-actions button {
+      min-height: 2.25rem;
+      padding: .45rem .7rem
+    }
+
+    @media(max-width:780px) {
+      .history-tools {
+        grid-template-columns: 1fr
+      }
+
+      .history-search {
+        max-width: none
+      }
+
+      .stock-group-head {
+        grid-template-columns: 3.5rem minmax(0, 1fr) auto
+      }
+
+      .stock-group-head>.stock-pill {
+        grid-column: 2
+      }
+
+      .expand-icon {
+        grid-column: 3;
+        grid-row: 1
+      }
+
+      .stock-variant,
+      .danger-zone {
+        align-items: stretch;
+        flex-direction: column
+      }
+
+      .variant-actions button {
+        flex: 1
+      }
+    }
+  </style>
+</head>
+
+<body class="shoe-app min-h-screen bg-slate-50 text-slate-800">
+  <div id="shoeToast" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+  <div id="shoeLoading" class="fixed inset-0 z-40 grid place-items-center bg-slate-50">
+    <div class="text-center">
+      <div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-700"></div>
+      <p class="mt-3 text-sm text-slate-600">Loading shoe data…</p>
+    </div>
+  </div>
+  <header class="shoe-header">
+    <div class="shoe-header-inner">
+      <div class="brand-lockup">
+        <div class="brand-mark">MT</div>
+        <div>
+          <p class="brand-kicker">MADHUSANKA TAILORS</p>
+          <h1>Shoe Sales & Stock</h1>
+          <p>Inventory, sales and payments in one place</p>
+        </div>
+      </div>
+      <nav class="top-nav">
+        <a href="index.html">Blazer Rentals</a>
+        <a href="billing.html">Billing</a>
+        <button id="logoutBtn">Logout</button>
+      </nav>
+    </div>
+  </header>
+  <main class="shoe-main">
+    <section id="summary" class="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <article class="shoe-stat"><span>Products</span><strong id="statProducts">0</strong></article>
+      <article class="shoe-stat"><span>Stock Units</span><strong id="statUnits">0</strong></article>
+      <article class="shoe-stat"><span>Pending</span><strong id="statPending" class="text-amber-700">Rs. 0</strong>
+      </article>
+    </section>
+
+    <section class="workspace-card">
+      <div class="shoe-tabs" role="tablist" aria-label="Shoe management sections">
+        <button class="shoe-tab active" data-view="stock">Stock</button>
+        <button class="shoe-tab" data-view="sale">New Sale</button>
+        <button class="shoe-tab" data-view="history">Sales History</button>
+        <button class="shoe-tab" data-view="pending">Pending Payments</button>
+        <button class="shoe-tab" data-view="reports">Reports</button>
+      </div>
+
+      <div id="view-stock" class="shoe-view workspace-body">
+        <div class="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+          <input id="stockSearch" type="search" placeholder="Search shoe code" class="shoe-input">
+          <select id="stockNameFilter" class="shoe-input">
+            <option value="">All names</option>
+            <option>Stronger</option>
+            <option>Relax Way</option>
+          </select>
+          <select id="stockSizeFilter" class="shoe-input">
+            <option value="">All sizes</option>
+          </select>
+          <select id="stockColorFilter" class="shoe-input">
+            <option value="">All colours</option>
+            <option>Black</option>
+            <option>T/Tan</option>
+            <option>T/Brown</option>
+          </select>
+          <button id="clearStockFiltersBtn" class="shoe-secondary" type="button">Clear Filters</button>
+          <button id="addShoeBtn" class="shoe-primary">+ Add Shoe</button>
+        </div>
+        <div id="stockCards" class="space-y-2"></div>
+        <p id="stockEmpty" class="shoe-empty">No shoes added yet.</p>
+        <div id="stockPagination" class="mt-4 flex flex-wrap items-center justify-between gap-2"></div>
+      </div>
+
+      <div id="view-sale" class="shoe-view hidden workspace-body">
+        <div>
+          <p class="shoe-eyebrow">POINT OF SALE</p>
+          <h2 class="text-xl font-bold">New Shoe Sale</h2>
+          <p class="text-sm text-slate-500">Add one or more shoes for the same customer.</p>
+        </div>
+        <div class="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <label class="shoe-field"><span>1. Colour</span><select id="saleColor" class="shoe-input">
+                <option value="">Choose colour</option>
+              </select></label>
+            <label class="shoe-field"><span>2. Size</span><select id="saleSize" disabled class="shoe-input">
+                <option value="">Choose size</option>
+              </select></label>
+            <label class="shoe-field lg:col-span-2"><span>3. Shoe Code</span><select id="saleShoe" disabled
+                class="shoe-input">
+                <option value="">Choose shoe</option>
+              </select></label>
+            <label class="shoe-field"><span>Selling Price</span><select id="salePrice" class="shoe-input">
+                <option value="3600">Rs. 3,600</option>
+                <option value="3800">Rs. 3,800</option>
+                <option value="5600">Rs. 5,600</option>
+                <option value="5800">Rs. 5,800</option>
+                <option value="CUSTOM">Customer Price</option>
+              </select></label>
+            <label class="shoe-field"><span>Quantity</span><input id="saleQty" min="1" value="1" type="number"
+                class="shoe-input"></label>
+            <label id="saleCustomPriceField" class="shoe-field hidden lg:col-start-5"><span>Customer Price
+                (Rs.)</span><input id="saleCustomPrice" min="1" step="0.01" type="number" class="shoe-input"
+                placeholder="Enter agreed price"></label>
+          </div>
+          <button id="addSaleItemBtn" class="shoe-primary mt-3" type="button">+ Add to Sale</button>
+        </div>
+        <form id="saleForm" class="mt-4 space-y-4">
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="shoe-table">
+              <thead>
+                <tr>
+                  <th>Shoe</th>
+                  <th>Colour</th>
+                  <th>Size/Qty</th>
+                  <th>Price</th>
+                  <th>Total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="saleCart"></tbody>
+            </table>
+            <p id="saleCartEmpty" class="shoe-empty !py-5">No shoes added to this sale.</p>
+          </div>
+          <div class="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <label class="shoe-field"><span>Customer Name</span><input id="saleCustomer" required
+                class="shoe-input"></label>
+            <label class="shoe-field"><span>Phone</span><input id="salePhone" type="tel" class="shoe-input"></label>
+            <label class="shoe-field"><span>Payment Type</span><select id="salePaymentType" required class="shoe-input">
+                <option value="FULL">Full Payment</option>
+                <option value="ADVANCE">Advance Payment</option>
+              </select></label>
+            <label id="salePaidField" class="shoe-field hidden"><span>Advance Paid (Rs.)</span><input id="salePaid"
+                min="0" step="0.01" type="number" class="shoe-input"></label>
+            <label class="shoe-field sm:col-span-2 lg:col-span-4"><span>Note</span><textarea id="saleNote" rows="2"
+                class="shoe-input"></textarea></label>
+          </div>
+          <div class="sale-checkout">
+            <div><span class="text-sm text-emerald-100">Sale Total</span><strong id="saleGrandTotal">Rs.
+                0</strong><small id="saleBalancePreview">Full payment</small></div><button id="completeSaleBtn"
+              class="shoe-primary min-w-40" type="submit">Complete Sale</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="view-history" class="shoe-view hidden workspace-body">
+        <div class="section-heading">
+          <div>
+            <p class="shoe-eyebrow">TRANSACTIONS</p>
+            <h2>Sales History</h2>
+          </div>
+          <div class="history-tools"><select id="salesPeriod" class="shoe-input">
+              <option value="all">All sales</option>
+              <option value="today">Today</option>
+              <option value="month">This month</option>
+            </select><input id="salesSearch" type="search" placeholder="Search customer, phone or shoe"
+              class="shoe-input history-search"></div>
+        </div>
+        <div id="salesList" class="space-y-3"></div>
+        <p id="salesEmpty" class="shoe-empty">No sales recorded yet.</p>
+      </div>
+      <div id="view-pending" class="shoe-view hidden workspace-body">
+        <div class="section-heading">
+          <div>
+            <p class="shoe-eyebrow">PAYMENTS</p>
+            <h2>Pending Balances</h2>
+          </div>
+        </div>
+        <div id="pendingList" class="space-y-3"></div>
+        <p id="pendingEmpty" class="shoe-empty">No pending payments.</p>
+      </div>
+      <div id="view-reports" class="shoe-view hidden workspace-body">
+        <div class="section-heading">
+          <div>
+            <p class="shoe-eyebrow">BUSINESS INSIGHTS</p>
+            <h2>Sales Reports</h2>
+          </div>
+        </div>
+        <div id="reportGrid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"></div>
+        <div class="mt-5 grid gap-4 lg:grid-cols-2">
+          <section class="report-panel">
+            <div class="report-heading">
+              <div>
+                <p class="shoe-eyebrow">SALES HISTORY</p>
+                <h3>Daily & Monthly Sales</h3>
+              </div>
+              <div class="flex gap-2"><button class="shoe-secondary" data-report-modal="daily">Daily</button><button
+                  class="shoe-secondary" data-report-modal="monthly">Monthly</button></div>
+            </div>
+          </section>
+          <section class="report-panel">
+            <div class="report-heading">
+              <div>
+                <p class="shoe-eyebrow">SUPPLIER LIST</p>
+                <h3>Shoes to Restock</h3>
+              </div><button id="copySupplierBtn" class="shoe-secondary">Copy List</button>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">Automatically clears when matching stock is added. Format: Code
+              Colour Size/Qty</p>
+            <div id="supplierList" class="mt-3 max-h-64 space-y-1 overflow-auto"></div>
+          </section>
+          <section class="report-panel lg:col-span-2">
+            <div class="report-heading">
+              <div>
+                <p class="shoe-eyebrow">DATA SAFETY</p>
+                <h3>Preview & Restore JSON Backup</h3>
+              </div><label class="shoe-secondary cursor-pointer">Choose JSON backup<input id="backupFile" type="file"
+                  accept="application/json,.json" class="hidden"></label>
+            </div>
+            <p class="mt-2 text-sm text-slate-500">Choose a JSON backup to preview before restoring. Existing records
+              are preserved; matching IDs are updated.</p>
+            <div id="backupPreview" class="backup-preview hidden"></div><button id="restoreBackupBtn"
+              class="shoe-primary mt-3 hidden" type="button">Restore Previewed Backup</button>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="shoeDialog" class="w-[min(94vw,42rem)] rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/50">
+    <form id="shoeForm" class="p-4 sm:p-6">
+      <div class="flex items-center justify-between">
+        <h2 id="shoeDialogTitle" class="text-xl font-bold">Add Shoe</h2><button type="button" data-close-dialog
+          class="rounded-lg px-3 py-1 text-xl hover:bg-slate-100" aria-label="Close">×</button>
+      </div>
+      <input id="shoeId" type="hidden">
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <label class="shoe-field"><span>Code</span><input id="shoeCode" required class="shoe-input"></label>
+        <label class="shoe-field"><span>Name</span><select id="shoeName" required class="shoe-input">
+            <option value="">Select name</option>
+            <option>Stronger</option>
+            <option>Relax Way</option>
+            <option value="__ADD__">＋ Add new name…</option>
+          </select></label>
+        <label class="shoe-field"><span>Size</span><select id="shoeSize" required class="shoe-input"></select></label>
+        <label class="shoe-field"><span>Colour</span><select id="shoeColor" required class="shoe-input">
+            <option value="">Select colour</option>
+            <option>Black</option>
+            <option>T/Tan</option>
+            <option>T/Brown</option>
+            <option value="__ADD__">＋ Add new colour…</option>
+          </select></label>
+        <label class="shoe-field"><span>Quantity</span><input id="shoeQuantity" required min="0" type="number"
+            class="shoe-input"></label>
+        <label class="shoe-field"><span>Buying Price (Rs.)</span><select id="shoeBuying" required class="shoe-input">
+            <option value="2000">Rs. 2,000</option>
+            <option value="3200">Rs. 3,200</option>
+            <option value="3500">Rs. 3,500</option>
+            <option value="CUSTOM">Custom Price</option>
+          </select></label>
+        <label id="shoeCustomBuyingField" class="shoe-field hidden"><span>Custom Buying Price (Rs.)</span><input
+            id="shoeCustomBuying" min="1" step="0.01" type="number" class="shoe-input"
+            placeholder="Enter buying price"></label>
+        <label class="shoe-field sm:col-span-2"><span>Note</span><textarea id="shoeNote" rows="2"
+            class="shoe-input"></textarea></label>
+      </div>
+      <div class="mt-5 flex justify-end gap-2"><button type="button" data-close-dialog
+          class="shoe-secondary">Cancel</button><button class="shoe-primary" type="submit">Save Shoe</button></div>
+    </form>
+  </dialog>
+  <dialog id="reportDialog" class="w-[min(94vw,42rem)] rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/50">
+    <div class="p-4 sm:p-6">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="shoe-eyebrow">SALES HISTORY</p>
+          <h2 id="reportDialogTitle" class="text-xl font-bold"></h2>
+        </div><button type="button" data-close-report class="rounded-lg px-3 py-1 text-xl hover:bg-slate-100">×</button>
+      </div>
+      <div id="reportHistoryTable" class="mt-4 max-h-[65vh] overflow-auto"></div>
+    </div>
+  </dialog>
+  <dialog id="saleDetailDialog" class="w-[min(94vw,46rem)] rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/50">
+    <div class="p-4 sm:p-6">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="shoe-eyebrow">SALE DETAILS</p>
+          <h2 class="text-xl font-bold">Customer Purchase</h2>
+        </div><button type="button" data-close-sale-detail
+          class="rounded-lg px-3 py-1 text-xl hover:bg-slate-100">×</button>
+      </div>
+      <div id="saleDetailContent" class="mt-4"></div>
+    </div>
+  </dialog>
+  <div id="actionLoading" class="fixed inset-0 z-[60] hidden place-items-center bg-slate-900/35 backdrop-blur-sm">
+    <div class="rounded-2xl bg-white px-7 py-6 text-center shadow-2xl">
+      <div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-700"></div>
+      <p id="actionLoadingText" class="mt-3 font-semibold">Saving…</p>
+    </div>
+  </div>
+  <script type="module" src="js/shoe.js"></script>
+</body>
+
+</html>
