@@ -13,5 +13,25 @@ service cloud.firestore {
     match /bills/{document=**} {
       allow read, write: if signedIn();
     }
+
+    match /rentalRecords/{document=**} {
+      allow read, write: if signedIn();
+    }
+
+    match /billRecords/{document=**} {
+      allow read, write: if signedIn();
+    }
+
+    match /shoes/{document=**} {
+      allow read, write: if signedIn();
+    }
+
+    match /shoeSales/{document=**} {
+      allow read, write: if signedIn();
+    }
+
+    match /shoePayments/{document=**} {
+      allow read, write: if signedIn();
+    }
   }
 }

@@ -1,151 +1,125 @@
-import {
-  doc,
-  getDoc,
-  onSnapshot,
-  serverTimestamp,
-  setDoc,
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+import { collection, deleteField, doc, getDoc, onSnapshot, serverTimestamp, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 import { db, isConfigured } from './firebase.js';
 
 const LOCAL_KEY = 'blazerRentals_v1';
-const COLLECTION = 'rentals';
-const DOC_ID = 'madhusanka_tailors';
+const RENTAL_RECORDS = 'rentalRecords';
+const BILL_RECORDS = 'billRecords';
+let rentalCache = new Map();
+let billCache = new Map();
+let rentalQueue = Promise.resolve();
+let billQueue = Promise.resolve();
+let stopRentals = null;
+let stopBills = null;
 
-let unsubscribe = null;
-let saveQueue = Promise.resolve();
-
-export function subscribeRentals(onUpdate, onError) {
-  if (!isConfigured() || !db) {
-    onError?.(new Error('Firebase is not configured.'));
-    return () => {};
-  }
-
-  const ref = doc(db, COLLECTION, DOC_ID);
-
-  migrateLocalData(ref).catch(onError);
-
-  unsubscribe = onSnapshot(
-    ref,
-    (snapshot) => {
-      const items = snapshot.exists() ? snapshot.data().items || [] : [];
-      onUpdate(Array.isArray(items) ? items : []);
-    },
-    (error) => onError?.(error)
-  );
-
-  return () => {
-    if (unsubscribe) {
-      unsubscribe();
-      unsubscribe = null;
-    }
-  };
+function ensureReady() {
+  if (!isConfigured() || !db) throw new Error('Firebase is not configured.');
 }
 
-async function migrateLocalData(ref) {
-  const snapshot = await getDoc(ref);
-  const raw = localStorage.getItem(LOCAL_KEY);
-  if (!raw) return;
+function recordId(item, prefix) {
+  const fallback = `${prefix}-${Date.now()}-${globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+  return String(item?.id || fallback).replaceAll('/', '-');
+}
 
-  let localItems = [];
-  try {
-    localItems = JSON.parse(raw);
-    if (!Array.isArray(localItems)) localItems = [];
-  } catch {
-    localItems = [];
-  }
+function clean(item) {
+  return Object.fromEntries(Object.entries(item).filter(([, value]) => value !== undefined));
+}
 
-  if (localItems.length === 0) {
-    localStorage.removeItem(LOCAL_KEY);
-    return;
-  }
+function comparable(item) {
+  const copy = { ...clean(item) };
+  delete copy.updatedAt;
+  delete copy.migratedAt;
+  return JSON.stringify(Object.keys(copy).sort().reduce((result, key) => {
+    result[key] = copy[key];
+    return result;
+  }, {}));
+}
 
-  const cloudItems = snapshot.exists() ? snapshot.data().items || [] : [];
-  if (cloudItems.length === 0) {
-    await setDoc(ref, {
-      items: localItems,
-      updatedAt: serverTimestamp(),
+async function commitOperations(operations) {
+  for (let start = 0; start < operations.length; start += 400) {
+    const batch = writeBatch(db);
+    operations.slice(start, start + 400).forEach((operation) => {
+      if (operation.type === 'delete') batch.delete(operation.ref);
+      else batch.set(operation.ref, operation.data, { merge: false });
     });
+    await batch.commit();
   }
+}
 
-  localStorage.removeItem(LOCAL_KEY);
+async function migrateItems(items, collectionName, prefix) {
+  if (!Array.isArray(items) || items.length === 0) return 0;
+  const operations = items.map((item) => {
+    const id = recordId(item, prefix);
+    return { type: 'set', ref: doc(db, collectionName, id), data: { ...clean(item), id, migratedAt: serverTimestamp() } };
+  });
+  await commitOperations(operations);
+  return operations.length;
+}
+
+async function migrateRentals() {
+  const legacyRef = doc(db, 'rentals', 'madhusanka_tailors');
+  const legacy = await getDoc(legacyRef);
+  const cloudItems = legacy.exists() && Array.isArray(legacy.data().items) ? legacy.data().items : [];
+  let localItems = [];
+  try { localItems = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); } catch { localItems = []; }
+  const items = cloudItems.length ? cloudItems : localItems;
+  const count = await migrateItems(items, RENTAL_RECORDS, 'rental');
+  if (count > 0 && legacy.exists()) {
+    await setDoc(legacyRef, { items: deleteField(), migratedTo: RENTAL_RECORDS, migratedCount: count, migratedAt: serverTimestamp() }, { merge: true });
+  }
+  if (count > 0 || localItems.length === 0) localStorage.removeItem(LOCAL_KEY);
+}
+
+async function migrateBills() {
+  const legacyRef = doc(db, 'bills', 'madhusanka_tailors');
+  const legacy = await getDoc(legacyRef);
+  const items = legacy.exists() && Array.isArray(legacy.data().items) ? legacy.data().items : [];
+  const count = await migrateItems(items, BILL_RECORDS, 'bill');
+  if (count > 0) {
+    await setDoc(legacyRef, { items: deleteField(), migratedTo: BILL_RECORDS, migratedCount: count, migratedAt: serverTimestamp() }, { merge: true });
+  }
+}
+
+function listen(collectionName, setCache, onUpdate, onError) {
+  return onSnapshot(collection(db, collectionName), (snapshot) => {
+    const items = snapshot.docs.map((entry) => ({ ...entry.data(), id: entry.id }));
+    setCache(new Map(items.map((item) => [item.id, item])));
+    onUpdate(items);
+  }, onError);
+}
+
+async function synchronize(collectionName, items, cache, prefix) {
+  const normalized = items.map((item) => {
+    const id = recordId(item, prefix);
+    return { ...clean(item), id };
+  });
+  const ids = new Set(normalized.map((item) => item.id));
+  const operations = normalized
+    .filter((item) => comparable(item) !== comparable(cache.get(item.id) || {}))
+    .map((item) => ({ type: 'set', ref: doc(db, collectionName, item.id), data: { ...item, updatedAt: serverTimestamp() } }));
+  cache.forEach((_, id) => { if (!ids.has(id)) operations.push({ type: 'delete', ref: doc(db, collectionName, id) }); });
+  await commitOperations(operations);
+}
+
+export function subscribeRentals(onUpdate, onError) {
+  try { ensureReady(); } catch (error) { onError?.(error); return () => {}; }
+  migrateRentals().then(() => { stopRentals = listen(RENTAL_RECORDS, (cache) => { rentalCache = cache; }, onUpdate, onError); }).catch(onError);
+  return () => { stopRentals?.(); stopRentals = null; };
 }
 
 export function saveRentals(items) {
-  if (!isConfigured() || !db) {
-    return Promise.reject(new Error('Firebase is not configured.'));
-  }
-
-  const ref = doc(db, COLLECTION, DOC_ID);
-
-  saveQueue = saveQueue.then(() =>
-    setDoc(
-      ref,
-      {
-        items,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    )
-  );
-
-  return saveQueue;
+  try { ensureReady(); } catch (error) { return Promise.reject(error); }
+  rentalQueue = rentalQueue.then(() => synchronize(RENTAL_RECORDS, items, rentalCache, 'rental'));
+  return rentalQueue;
 }
 
-
-// -----------------------------------------------------------------------------
-// DIGITAL BILL STORAGE
-// Bills use their own Firestore document so rental data and billing data remain
-// independent while still syncing through the same authenticated Firebase app.
-// -----------------------------------------------------------------------------
-
-const BILLS_COLLECTION = 'bills';
-const BILLS_DOC_ID = 'madhusanka_tailors';
-
-let billsUnsubscribe = null;
-let billSaveQueue = Promise.resolve();
-
 export function subscribeBills(onUpdate, onError) {
-  if (!isConfigured() || !db) {
-    onError?.(new Error('Firebase is not configured.'));
-    return () => {};
-  }
-
-  const ref = doc(db, BILLS_COLLECTION, BILLS_DOC_ID);
-
-  billsUnsubscribe = onSnapshot(
-    ref,
-    (snapshot) => {
-      const items = snapshot.exists() ? snapshot.data().items || [] : [];
-      onUpdate(Array.isArray(items) ? items : []);
-    },
-    (error) => onError?.(error)
-  );
-
-  return () => {
-    if (billsUnsubscribe) {
-      billsUnsubscribe();
-      billsUnsubscribe = null;
-    }
-  };
+  try { ensureReady(); } catch (error) { onError?.(error); return () => {}; }
+  migrateBills().then(() => { stopBills = listen(BILL_RECORDS, (cache) => { billCache = cache; }, onUpdate, onError); }).catch(onError);
+  return () => { stopBills?.(); stopBills = null; };
 }
 
 export function saveBills(items) {
-  if (!isConfigured() || !db) {
-    return Promise.reject(new Error('Firebase is not configured.'));
-  }
-
-  const ref = doc(db, BILLS_COLLECTION, BILLS_DOC_ID);
-
-  billSaveQueue = billSaveQueue.then(() =>
-    setDoc(
-      ref,
-      {
-        items,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    )
-  );
-
-  return billSaveQueue;
+  try { ensureReady(); } catch (error) { return Promise.reject(error); }
+  billQueue = billQueue.then(() => synchronize(BILL_RECORDS, items, billCache, 'bill'));
+  return billQueue;
 }

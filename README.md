@@ -2,6 +2,8 @@
 
 A web app to manage blazer rentals with **cloud sync**, **login protection**, **English/Sinhala** language support, and **mobile-friendly** design.
 
+The combined app now also includes a responsive **Shoe Sales & Stock** module converted from the MT Shoe Manager Flutter app. It supports stock quantities, sales, partial payments, pending balances, and business reports without requiring Firebase Storage.
+
 ---
 
 ## Login details
@@ -75,6 +77,8 @@ firebase init firestore
 # Select your project, use firestore.rules from this repo
 firebase deploy --only firestore:rules
 ```
+
+Rental bookings and bills are stored as individual Firestore documents. Existing array-based data is migrated automatically on first load, preventing the 1 MiB single-document limit from becoming a long-term problem.
 
 Or paste the contents of `firestore.rules` manually in Firebase Console → Firestore → **Rules** → **Publish**.
 
