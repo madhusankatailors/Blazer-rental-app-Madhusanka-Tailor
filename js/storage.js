@@ -1,4 +1,4 @@
-import { collection, deleteField, doc, getDoc, onSnapshot, serverTimestamp, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+import { collection, deleteField, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 import { db, isConfigured } from './firebase.js';
 
 const LOCAL_KEY = 'blazerRentals_v1';
@@ -98,6 +98,8 @@ async function synchronize(collectionName, items, cache, prefix) {
     .map((item) => ({ type: 'set', ref: doc(db, collectionName, item.id), data: { ...item, updatedAt: serverTimestamp() } }));
   cache.forEach((_, id) => { if (!ids.has(id)) operations.push({ type: 'delete', ref: doc(db, collectionName, id) }); });
   await commitOperations(operations);
+  cache.clear();
+  normalized.forEach((item) => cache.set(item.id, item));
 }
 
 export function subscribeRentals(onUpdate, onError) {
@@ -109,6 +111,22 @@ export function subscribeRentals(onUpdate, onError) {
 export function saveRentals(items) {
   try { ensureReady(); } catch (error) { return Promise.reject(error); }
   rentalQueue = rentalQueue.then(() => synchronize(RENTAL_RECORDS, items, rentalCache, 'rental'));
+  return rentalQueue;
+}
+
+export function updateRentalStatus(id, status) {
+  try { ensureReady(); } catch (error) { return Promise.reject(error); }
+  const rentalRef = doc(db, RENTAL_RECORDS, String(id).replaceAll('/', '-'));
+  rentalQueue = rentalQueue.then(async () => {
+    await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(rentalRef);
+      if (!snapshot.exists()) throw new Error('This booking no longer exists. Refresh and try again.');
+      if (snapshot.data().status !== 'Pending') throw new Error('This booking was already updated in another session.');
+      transaction.update(rentalRef, { status, updatedAt: serverTimestamp() });
+    });
+    const cached = rentalCache.get(String(id));
+    if (cached) rentalCache.set(String(id), { ...cached, status });
+  });
   return rentalQueue;
 }
 
