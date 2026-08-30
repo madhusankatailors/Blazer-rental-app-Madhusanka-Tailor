@@ -1,5 +1,5 @@
 import { requireAuth, logout } from './auth.js';
-import { subscribeRentals, saveRentals as persistRentals } from './storage.js';
+import { subscribeRentals, saveRentals as persistRentals, updateRentalStatus } from './storage.js';
 
 const PRICES = { 'Light Color': 2000, 'Dark Color': 1750 };
 
@@ -1603,6 +1603,20 @@ function showToast(message, type = 'success') {
   toast.dataset.timeoutId = String(timeoutId);
 }
 
+function setActionButtonLoading(button, loading, label = t('syncSaving')) {
+  if (!button) return;
+  if (loading) {
+    button.disabled = true;
+    button.dataset.defaultHtml = button.innerHTML;
+    button.innerHTML = `<span class="app-loading-spinner" aria-hidden="true"></span>${escapeHtml(label)}`;
+    button.classList.add('opacity-70', 'cursor-not-allowed');
+    return;
+  }
+  button.disabled = false;
+  if (button.dataset.defaultHtml) button.innerHTML = button.dataset.defaultHtml;
+  button.classList.remove('opacity-70', 'cursor-not-allowed');
+}
+
 function notifyRemoteBookingChange(previousItems, nextItems) {
   if (!hasLoadedCloudData || previousItems === nextItems) return;
 
@@ -1716,15 +1730,19 @@ function handleTableClick(e) {
 
   if (action === 'return') {
     rental.status = 'Returned';
-    saveRentals()
+    setActionButtonLoading(btn, true);
+    updateRentalStatus(rental.id, 'Returned')
       .then(() => {
         showToast(t('toastBookingReturned'), 'success');
         afterAction();
       })
       .catch(() => {
+        rental.status = 'Pending';
+        setActionButtonLoading(btn, false);
         showToast(t('toastSyncError'), 'error');
       });
   } else if (action === 'collect-balance') {
+    setActionButtonLoading(btn, true);
     rental.advancePaid = rental.totalPrice;
     rental.balanceDue = 0;
     saveRentals()
@@ -1733,6 +1751,7 @@ function handleTableClick(e) {
         afterAction();
       })
       .catch(() => {
+        setActionButtonLoading(btn, false);
         showToast(t('toastSyncError'), 'error');
       });
   } else if (action === 'edit') {
@@ -1740,6 +1759,7 @@ function handleTableClick(e) {
     populateForm(rental);
   } else if (action === 'delete') {
     if (confirm(t('confirmDelete', { name: rental.customerName, code: formatBlazerCodes(rental) }))) {
+      setActionButtonLoading(btn, true);
       rentals = rentals.filter((r) => r.id !== id);
       saveRentals()
         .then(() => {
@@ -1748,6 +1768,7 @@ function handleTableClick(e) {
           closeDetailModal();
         })
         .catch(() => {
+          setActionButtonLoading(btn, false);
           showToast(t('toastSyncError'), 'error');
         });
     }
@@ -1778,7 +1799,6 @@ function initEventListeners() {
   els.tableBody.addEventListener('click', handleTableClick);
   els.rentalsCards.addEventListener('click', handleTableClick);
   els.detailModal?.addEventListener('click', handleTableClick);
-  els.detailModalActions?.addEventListener('click', handleTableClick);
   els.analyticsHistoryModal?.addEventListener('click', (event) => {
     if (event.target.closest('[data-action="close-analytics-history"]')) closeAnalyticsHistory();
   });
@@ -1905,7 +1925,8 @@ function hideAppLoading() {
 }
 
 async function init() {
-  await requireAuth();
+  const user = await requireAuth();
+  if (!user) return;
 
   resetForm();
   initEventListeners();

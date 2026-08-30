@@ -57,30 +57,24 @@
           <button type="button" id="newBookingBtn" aria-controls="bookingFormSection" aria-expanded="false" class="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-brand-800 shadow-sm hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-brand-800 transition-colors">
             <span aria-hidden="true">+</span><span data-i18n="btnNewBooking">New Booking Blazer</span>
           </button>
-          <a href="billing.html"
-              class="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-brand-800 shadow-sm hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-brand-800 transition-colors"
-              data-i18n="btnBilling">
-              + Billing
-            </a>
-          <a href="shoe.html"
-              class="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-brand-800 transition-colors">
-              + Shoe Sales &amp; Stock
-          </a>
         </div>
-        <div class="flex flex-col items-end gap-2 shrink-0">
-          <div class="flex items-center gap-2">
-            <div class="inline-flex rounded-lg bg-brand-900/40 p-1 gap-1" role="group" aria-label="Language">
-              <button type="button" id="langEn" data-i18n="langEnglish">English</button>
-              <button type="button" id="langSi" data-i18n="langSinhala">සිංහල</button>
+        <div class="billing-header-actions flex flex-wrap items-center justify-end gap-2 shrink-0">
+          <nav class="app-module-nav" aria-label="Application sections">
+            <a href="index.html" aria-current="page" data-i18n="navRentals">Rentals</a>
+            <a href="billing.html" data-i18n="navBilling">Billing</a>
+            <a href="shoe.html" data-i18n="navShoes">Shoes</a>
+          </nav>
+          <details class="app-settings">
+            <summary aria-label="Settings" title="Settings"><span aria-hidden="true">&#9881;</span></summary>
+            <div class="app-settings-menu">
+              <div class="inline-flex rounded-lg bg-slate-100 p-1 gap-1" role="group" aria-label="Language">
+                <button type="button" id="langEn" data-i18n="langEnglish">English</button>
+                <button type="button" id="langSi" data-i18n="langSinhala">සිංහල</button>
+              </div>
+              <button type="button" id="logoutBtn" class="app-settings-logout" data-i18n="btnLogout">Logout</button>
             </div>
-            
-            <button type="button" id="logoutBtn"
-              class="px-3 py-1.5 rounded-md text-xs font-semibold bg-brand-900/40 text-brand-100 hover:text-white hover:bg-brand-700 transition-colors"
-              data-i18n="btnLogout">
-              Logout
-            </button>
-          </div>
-          <p id="syncStatus" class="text-brand-100 text-[10px] sm:text-xs font-medium text-right leading-snug"></p>
+          </details>
+          <p id="syncStatus" class="app-sync-status text-brand-100 text-[10px] sm:text-xs font-medium text-right leading-snug"></p>
           <p id="todayDisplay" class="text-brand-100 text-xs sm:text-sm font-medium text-right max-w-[12rem] sm:max-w-none leading-snug"></p>
         </div>
       </div>
