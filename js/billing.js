@@ -1520,7 +1520,8 @@ function initEvents() {
 }
 
 async function init() {
-  await requireAuth();
+  const user = await requireAuth();
+  if (!user) return;
 
   createItemRows();
   resetForm();

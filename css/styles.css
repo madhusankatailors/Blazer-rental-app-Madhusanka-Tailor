@@ -24,6 +24,114 @@ form,
   padding-right: max(1rem, env(safe-area-inset-right));
 }
 
+.app-module-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.app-module-nav a,
+.app-module-nav button {
+  border: 1px solid rgb(186 230 253 / 0.28);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  color: rgb(224 242 254);
+  font-size: 0.7rem;
+  font-weight: 700;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.app-module-nav a:hover,
+.app-module-nav a[aria-current="page"],
+.app-module-nav button:hover {
+  background: rgb(255 255 255 / 0.16);
+  color: #fff;
+}
+
+.app-module-nav button {
+  background: transparent;
+}
+
+.app-settings {
+  position: relative;
+}
+
+.app-settings summary {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(186 230 253 / 0.28);
+  border-radius: 0.5rem;
+  color: rgb(224 242 254);
+  cursor: pointer;
+  list-style: none;
+}
+
+.app-settings summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-settings summary:hover,
+.app-settings[open] summary {
+  background: rgb(255 255 255 / 0.16);
+  color: #fff;
+}
+
+.app-settings-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  min-width: 9.5rem;
+  gap: 0.55rem;
+  padding: 0.65rem;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.65rem;
+  background: #fff;
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.18);
+}
+
+.app-settings-menu [role="group"] {
+  justify-content: center;
+}
+
+.app-settings-logout {
+  min-height: 2.25rem;
+  border-radius: 0.45rem;
+  background: rgb(2 132 199);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.app-settings-logout:hover {
+  background: rgb(3 105 161);
+}
+
+.app-sync-status {
+  display: none;
+}
+
+.app-loading-spinner {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-right: 0.35rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: app-spin 700ms linear infinite;
+  vertical-align: -0.12rem;
+}
+
+@keyframes app-spin {
+  to { transform: rotate(360deg); }
+}
+
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   opacity: 1;
@@ -913,6 +1021,12 @@ html[lang="si"] .billing-paper-brand h1 {
   table-layout: fixed;
   border: 0.4mm solid #2e2a26;
 }
+
+.billing-paper-col-no { width: 8%; }
+.billing-paper-col-description { width: 40%; }
+.billing-paper-col-qty { width: 10%; }
+.billing-paper-col-unit-price { width: 20%; }
+.billing-paper-col-amount { width: 22%; }
 
 .billing-paper-table th,
 .billing-paper-table td {
