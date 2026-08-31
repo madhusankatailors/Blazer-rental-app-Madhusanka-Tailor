@@ -862,10 +862,32 @@ dialog::backdrop {
     border: 0
 }
 
-.stock-variant span,
+.stock-variant-info {
+    min-width: 0;
+    flex: 1
+}
+
+.stock-variant-topline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem
+}
+
+.stock-size-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #334155;
+    padding: .22rem .48rem;
+    font-size: .7rem;
+    font-weight: 800
+}
+
 .stock-variant small {
     display: block;
-    margin-top: .15rem;
+    margin-top: .2rem;
     font-size: .72rem;
     color: var(--muted)
 }
@@ -873,7 +895,9 @@ dialog::backdrop {
 .variant-actions {
     display: flex;
     flex: 0 0 auto;
-    gap: .4rem
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: .45rem
 }
 
 .variant-actions button {
