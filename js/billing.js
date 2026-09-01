@@ -1232,8 +1232,17 @@ async function collectBillBalance(bill) {
   }))) return;
 
   const previousBills = [...bills];
+  
+  // Find the actual bill in the array and update it directly
+  const billIndex = bills.findIndex((item) => item.id === bill.id);
+  if (billIndex < 0) {
+    showToast(t('toastSyncError'), 'error');
+    return;
+  }
+
+  // Create updated bill with all original fields plus payment updates
   const updated = {
-    ...normalized,
+    ...bills[billIndex],
     paymentType: 'full',
     paidAmount: normalized.totalAmount,
     advanceAmount: normalized.totalAmount,
@@ -1241,7 +1250,7 @@ async function collectBillBalance(bill) {
     updatedAt: new Date().toISOString(),
   };
 
-  bills = bills.map((item) => item.id === updated.id ? updated : item);
+  bills[billIndex] = updated;
 
   try {
     await persistCurrentBills();
@@ -1249,7 +1258,7 @@ async function collectBillBalance(bill) {
     if (currentPreviewBill?.id === updated.id) renderPreview(updated);
     renderAll();
     showToast(t('billingToastBalanceCollected'), 'success');
-  } catch {
+  } catch (error) {
     bills = previousBills;
     renderAll();
     showToast(t('toastSyncError'), 'error');
