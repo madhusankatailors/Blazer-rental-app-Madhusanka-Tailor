@@ -1729,7 +1729,11 @@ function handleTableClick(e) {
   };
 
   if (action === 'return') {
-    rental.status = 'Returned';
+    const rentalIndex = rentals.findIndex((item) => item.id === id);
+    const previousRental = rentalIndex >= 0 ? { ...rentals[rentalIndex] } : null;
+    if (rentalIndex >= 0) {
+      rentals[rentalIndex] = { ...rentals[rentalIndex], status: 'Returned' };
+    }
     setActionButtonLoading(btn, true);
     updateRentalStatus(rental.id, 'Returned')
       .then(() => {
@@ -1737,23 +1741,40 @@ function handleTableClick(e) {
         afterAction();
       })
       .catch(() => {
-        rental.status = 'Pending';
+        if (rentalIndex >= 0 && previousRental) {
+          rentals[rentalIndex] = previousRental;
+        }
         setActionButtonLoading(btn, false);
         showToast(t('toastSyncError'), 'error');
       });
   } else if (action === 'collect-balance') {
+    const rentalIndex = rentals.findIndex((r) => r.id === id);
+    const previousRental = rentalIndex >= 0 ? { ...rentals[rentalIndex] } : null;
     setActionButtonLoading(btn, true);
-    rental.advancePaid = rental.totalPrice;
-    rental.balanceDue = 0;
-    saveRentals()
-      .then(() => {
-        showToast(t('toastBalanceCollected'), 'success');
-        afterAction();
-      })
-      .catch(() => {
-        setActionButtonLoading(btn, false);
-        showToast(t('toastSyncError'), 'error');
-      });
+    if (rentalIndex >= 0) {
+      const updated = {
+        ...rentals[rentalIndex],
+        advancePaid: rentals[rentalIndex].totalPrice,
+        balanceDue: 0,
+        updatedAt: new Date().toISOString(),
+      };
+      rentals[rentalIndex] = updated;
+      saveRentals()
+        .then(() => {
+          showToast(t('toastBalanceCollected'), 'success');
+          afterAction();
+        })
+        .catch(() => {
+          if (previousRental) {
+            rentals[rentalIndex] = previousRental;
+          }
+          setActionButtonLoading(btn, false);
+          showToast(t('toastSyncError'), 'error');
+        });
+    } else {
+      setActionButtonLoading(btn, false);
+      showToast(t('toastSyncError'), 'error');
+    }
   } else if (action === 'edit') {
     closeDetailModal();
     populateForm(rental);
