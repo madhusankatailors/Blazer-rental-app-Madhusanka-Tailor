@@ -196,8 +196,8 @@
 
           <div>
             <label for="bookingDate" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelBookingDate">Booking Date</label>
-            <input type="date" id="bookingDate" readonly
-              class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600 cursor-not-allowed" />
+            <input type="date" id="bookingDate"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
           </div>
 
           <div>
@@ -451,6 +451,19 @@
         <button type="button" data-action="close-analytics-history" class="detail-modal-close" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6L18 18"/></svg></button>
       </div>
       <div id="analyticsHistoryBody" class="detail-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="rentalReceiptPreviewModal" class="billing-preview-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Rental receipt preview">
+    <div class="billing-preview-backdrop" data-action="close-receipt-preview"></div>
+    <div class="billing-preview-panel">
+      <div class="billing-preview-actions no-print">
+        <button type="button" data-action="close-receipt-preview" class="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Close</button>
+        <button id="rentalReceiptPdfBtn" type="button" class="px-3 py-2 rounded-lg bg-brand-600 text-white text-xs font-semibold">Download / Share PDF</button>
+      </div>
+      <div id="rentalReceiptPreviewScroll" class="billing-preview-scroll">
+        <div id="rentalReceiptPaperStage" class="billing-paper-stage"></div>
+      </div>
     </div>
   </div>
 

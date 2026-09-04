@@ -12,6 +12,7 @@ let previousSnapshot = [];
 let activeDetailRentalId = null;
 let activeQuickFilter = 'all';
 let pendingRestore = null;
+let previewReceiptRentalId = null;
 const ITEMS_PER_PAGE = 10;
 let currentPage = 1;
 
@@ -81,6 +82,10 @@ const els = {
   analyticsHistoryModal: $('analyticsHistoryModal'),
   analyticsHistoryTitle: $('analyticsHistoryTitle'),
   analyticsHistoryBody: $('analyticsHistoryBody'),
+  rentalReceiptPreviewModal: $('rentalReceiptPreviewModal'),
+  rentalReceiptPreviewScroll: $('rentalReceiptPreviewScroll'),
+  rentalReceiptPaperStage: $('rentalReceiptPaperStage'),
+  rentalReceiptPdfBtn: $('rentalReceiptPdfBtn'),
   analyticsTopColorsValue: $('analyticsTopColorsValue'),
   analyticsOverdueRateValue: $('analyticsOverdueRateValue'),
   syncStatus: $('syncStatus'),
@@ -830,12 +835,16 @@ function renderDetailModalBlazers(rental) {
 
 function buildReceiptHtml(rental) {
   const blazers = Array.isArray(rental.blazers) && rental.blazers.length ? rental.blazers : [{ blazerCode: rental.blazerCode || '—', colorName: rental.colorName || '—', colorType: rental.colorType || 'Dark Color' }];
-  const rows = blazers.map((blazer) => `
+  const balance = getRentalBalance(rental);
+  const formatReceiptAmount = (amount) => Number(amount || 0).toLocaleString('en-LK');
+  const isPaidInFull = Number(rental.totalPrice || 0) > 0 && balance <= 0;
+  const rows = blazers.map((blazer, index) => `
     <tr>
-      <td>${escapeHtml(blazer.blazerCode || '—')}</td>
-      <td>${escapeHtml(blazer.colorName || '—')}</td>
-      <td>${escapeHtml(translateColorType(blazer.colorType || 'Dark Color'))}</td>
-      <td>${escapeHtml(formatCurrency(getBlazerPrice(blazer)))}</td>
+      <td>${index + 1}</td>
+      <td>${escapeHtml(`Blazer ${blazer.blazerCode || '—'} · ${blazer.colorName || '—'} · ${translateColorType(blazer.colorType || 'Dark Color')}`)}</td>
+      <td>1</td>
+      <td>${escapeHtml(formatReceiptAmount(getBlazerPrice(blazer)))}</td>
+      <td>${escapeHtml(formatReceiptAmount(getBlazerPrice(blazer)))}</td>
     </tr>
   `).join('');
 
@@ -845,68 +854,73 @@ function buildReceiptHtml(rental) {
       <meta charset="UTF-8" />
       <title>Madhusanka Tailors Rental Receipt</title>
       <style>
-        body { font-family: Arial, sans-serif; color: #0f172a; margin: 32px; }
-        .receipt { max-width: 760px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 14px; padding: 28px; }
-        .header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 20px; }
-        .brand { font-size: 24px; font-weight: 700; }
-        .label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; }
-        .grid { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 12px 22px; margin: 18px 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 18px; }
-        th, td { border: 1px solid #e2e8f0; padding: 10px 12px; text-align: left; font-size: 14px; }
-        th { background: #f8fafc; }
-        .totals { margin-top: 18px; display: flex; justify-content: flex-end; }
-        .totals-box { width: 260px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; }
-        .row { display: flex; justify-content: space-between; margin-top: 8px; }
-        .notes { margin-top: 18px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
-        @media print { body { margin: 0; } .receipt { border: none; box-shadow: none; } }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #fff; }
+        .billing-paper { position: relative; width: 148mm; min-height: 210mm; padding: 6.5mm 7mm 6mm; background: #fff; color: #25211d; font-family: Arial, Helvetica, sans-serif; }
+        .billing-paper-header { display: grid; grid-template-columns: 30mm 1fr; align-items: center; gap: 4mm; min-height: 27mm; }
+        .billing-paper-logo-wrap { display: flex; align-items: center; justify-content: center; }
+        .billing-paper-logo { display: block; width: 28mm; height: auto; }
+        .billing-paper-brand { text-align: center; min-width: 0; }
+        .billing-paper-brand h1 { margin: 0 0 1.2mm; font-family: Georgia, 'Times New Roman', serif; font-size: 5.4mm; line-height: 1; letter-spacing: .16mm; font-weight: 800; }
+        .billing-paper-brand p { margin: .7mm 0 0; font-size: 2.45mm; line-height: 1.3; font-weight: 600; }
+        .billing-paper-rule { height: .8mm; margin: 1.5mm 0 3.3mm; background: linear-gradient(90deg, #70512a, #c9a56d, #70512a); }
+        .billing-paper-meta { display: grid; grid-template-columns: 1fr 46mm; gap: 4mm; margin-bottom: 3mm; }
+        .billing-paper-meta-left, .billing-paper-meta-right { display: grid; gap: 1.6mm; }
+        .billing-paper-meta-left > div, .billing-paper-meta-right > div { display: grid; grid-template-columns: auto 1fr; gap: 2mm; min-height: 5mm; align-items: end; }
+        .billing-paper-meta span { font-size: 2.65mm; font-weight: 700; white-space: nowrap; }
+        .billing-paper-meta strong { min-width: 0; padding: 0 1mm .6mm; border-bottom: .3mm dotted #756b61; font-size: 2.65mm; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .billing-paper-table { width: 100%; border-collapse: collapse; table-layout: fixed; border: .4mm solid #2e2a26; }
+        .billing-paper-table th, .billing-paper-table td { border: .3mm solid #3b3733; }
+        .billing-paper-table th { height: 6.6mm; padding: .8mm 1mm; background: #2a251f; color: #fff; font-size: 2.5mm; text-align: center; line-height: 1; font-weight: 700; }
+        .billing-paper-table td { height: 6.4mm; padding: .6mm 1.2mm; font-size: 2.55mm; line-height: 1.05; }
+        .billing-paper-table td:nth-child(1), .billing-paper-table td:nth-child(3) { text-align: center; }
+        .billing-paper-table td:nth-child(4), .billing-paper-table td:nth-child(5) { text-align: right; padding-right: 1.5mm; font-variant-numeric: tabular-nums; }
+        .billing-paper-bottom { display: grid; grid-template-columns: 1fr 50mm; border: .3mm solid #3b3733; border-top: 0; }
+        .billing-paper-dates { display: grid; align-content: center; gap: 2.2mm; padding: 3mm; border-right: .3mm solid #3b3733; }
+        .billing-paper-dates > div { display: grid; grid-template-columns: auto 1fr; gap: 2mm; align-items: end; }
+        .billing-paper-dates span, .billing-paper-summary span { font-size: 2.45mm; font-weight: 700; }
+        .billing-paper-dates strong { padding-bottom: .5mm; border-bottom: .3mm dotted #756b61; font-size: 2.45mm; text-align: center; }
+        .billing-paper-summary > div { min-height: 7mm; display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: center; padding: 1mm 2mm; border-bottom: .3mm solid #3b3733; }
+        .billing-paper-summary > div:last-child { border-bottom: 0; }
+        .billing-paper-summary strong { text-align: right; font-size: 2.75mm; }
+        .billing-paper-balance { background: #f2ece3; font-weight: 900; }
+        .billing-paid-seal { position: absolute; right: 57mm; bottom: 27mm; width: 28mm; height: auto; opacity: .92; transform: rotate(-7deg); }
+        .billing-paper-footer { margin-top: 3.2mm; }
+        .billing-paper-footer p { margin: 0; font-size: 2.05mm; line-height: 1.4; text-align: justify; }
+        .billing-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 15mm; margin-top: 8mm; }
+        .billing-signatures span { padding-top: 1.4mm; border-top: .3mm solid #4a433c; text-align: center; font-size: 2.2mm; }
+        .billing-signatures strong { display: block; margin-bottom: .8mm; font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 3.4mm; font-weight: 600; }
+        .billing-signatures .customer-name { font-family: Arial, Helvetica, sans-serif; font-size: 2.65mm; font-weight: 700; }
+        .billing-signatures small { display: block; font-size: 2.2mm; }
+        .billing-signatures .rental-signature { padding-top: 0; border-top: 0; }
+        .billing-signatures .rental-signature small { padding-top: 1.4mm; border-top: .3mm solid #4a433c; }
       </style>
     </head>
     <body>
-      <div class="receipt">
-        <div class="header">
-          <div>
-            <div class="brand">Madhusanka Tailor's</div>
-            <div class="label">Rental Receipt</div>
-          </div>
-          <div style="text-align: right;">
-            <div class="label">Receipt No.</div>
-            <div>${escapeHtml(rental.id || '—')}</div>
-          </div>
-        </div>
-
-        <div class="grid">
-          <div><div class="label">Customer</div><div>${escapeHtml(rental.customerName || '—')}</div></div>
-          <div><div class="label">Phone</div><div>${escapeHtml(rental.phoneNumber || '—')}${rental.phoneNumber2 ? `<br>${escapeHtml(rental.phoneNumber2)}` : ''}</div></div>
-          <div><div class="label">Booking Date</div><div>${formatDate(rental.bookingDate)}</div></div>
-          <div><div class="label">Pickup Date</div><div>${formatDate(rental.pickupDate)}</div></div>
-          <div><div class="label">Return Date</div><div>${formatDate(rental.returnDate)}</div></div>
-          <div><div class="label">Status</div><div>${escapeHtml(getDisplayStatusText(rental))}</div></div>
-        </div>
-
-        <table>
+      <article class="billing-paper">
+        <header class="billing-paper-header">
+          <div class="billing-paper-logo-wrap"><img src="assets/madhusanka-logo.png" alt="Madhusanka Tailors" class="billing-paper-logo" /></div>
+          <div class="billing-paper-brand"><h1>MADHUSANKA TAILORS</h1><p>No.29, Super Market Lane, Dankotuwa.</p><p>Tel: 031 490 3171 &nbsp; | &nbsp; Mobile: 077 860 1003</p></div>
+        </header>
+        <div class="billing-paper-rule"></div>
+        <section class="billing-paper-meta">
+          <div class="billing-paper-meta-left"><div><span>Name</span><strong>${escapeHtml(rental.customerName || '—')}</strong></div><div><span>Telephone</span><strong>${escapeHtml(rental.phoneNumber || '—')}</strong></div></div>
+          <div class="billing-paper-meta-right"><div><span>Date</span><strong>${formatDate(rental.bookingDate)}</strong></div></div>
+        </section>
+        <table class="billing-paper-table">
+          <colgroup><col style="width:8%"><col style="width:40%"><col style="width:10%"><col style="width:20%"><col style="width:22%"></colgroup>
           <thead>
-            <tr>
-              <th>Blazer Code</th>
-              <th>Color</th>
-              <th>Type</th>
-              <th>Price</th>
-            </tr>
+            <tr><th>No.</th><th>Description</th><th>Qty</th><th>Unit Price (Rs.)</th><th>Amount (Rs.)</th></tr>
           </thead>
-          <tbody>
-            ${rows}
-          </tbody>
+          <tbody>${rows}</tbody>
         </table>
-
-        <div class="totals">
-          <div class="totals-box">
-            <div class="row"><span>Total</span><strong>${formatCurrency(rental.totalPrice || 0)}</strong></div>
-            <div class="row"><span>advance money</span><strong>${formatCurrency(rental.advancePaid || 0)}</strong></div>
-            <div class="row"><span>Balance</span><strong>${formatCurrency(getRentalBalance(rental))}</strong></div>
-          </div>
-        </div>
-
-        ${rental.notes ? `<div class="notes"><div class="label">Notes</div><div>${escapeHtml(rental.notes)}</div></div>` : ''}
-      </div>
+        <section class="billing-paper-bottom">
+          <div class="billing-paper-dates"><div><span>Received Date</span><strong>${formatDate(rental.pickupDate)}</strong></div><div><span>Delivery / Return Date</span><strong>${formatDate(rental.returnDate)}</strong></div></div>
+          <div class="billing-paper-summary"><div><span>Total</span><strong>${formatReceiptAmount(rental.totalPrice)}</strong></div><div><span>Paid</span><strong>${formatReceiptAmount(rental.advancePaid)}</strong></div><div><span>Payment Status</span><strong>${balance <= 0 ? 'Paid' : 'Not Paid'}</strong></div><div class="billing-paper-balance"><span>Balance</span><strong>${formatReceiptAmount(balance)}</strong></div></div>
+        </section>
+        ${isPaidInFull ? '<img src="assets/paid-seal.png" alt="Paid" class="billing-paid-seal is-visible" />' : ''}
+        <footer class="billing-paper-footer"><p>Wedding garments must be returned on the agreed date. Damage or loss will be charged according to the amount determined by the establishment. Late returns are subject to a Rs. 200/- charge per day.</p><div class="billing-signatures"><span class="rental-signature"><strong class="customer-name">${escapeHtml(rental.customerName || 'Customer')}</strong><small>Customer Signature</small></span><span class="rental-signature"><strong>Madhusanka Tailors</strong><small>Authorized Signature</small></span></div></footer>
+      </article>
     </body>
     </html>`;
 }
@@ -919,7 +933,7 @@ async function downloadRentalReceipt(rental) {
 
   const source = new DOMParser().parseFromString(buildReceiptHtml(rental), 'text/html');
   const receipt = document.createElement('div');
-  receipt.style.cssText = 'position:fixed;left:-10000px;top:0;width:824px;background:#fff;z-index:-1;';
+  receipt.style.cssText = 'position:fixed;left:-10000px;top:0;width:148mm;background:#fff;z-index:-1;';
   const styles = source.head.querySelector('style');
   if (styles) receipt.appendChild(styles.cloneNode(true));
   receipt.append(...Array.from(source.body.children).map((child) => child.cloneNode(true)));
@@ -927,28 +941,16 @@ async function downloadRentalReceipt(rental) {
 
   const safeName = (rental.customerName || 'customer').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'receipt';
   try {
-    const canvas = await window.html2canvas(receipt, {
-      scale: 2,
+    const paper = receipt.querySelector('.billing-paper') || receipt;
+    const canvas = await window.html2canvas(paper, {
+      scale: 2.4,
       backgroundColor: '#ffffff',
       useCORS: true,
     });
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imageHeight = (canvas.height * pageWidth) / canvas.width;
+    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: [148, 210] });
     const image = canvas.toDataURL('image/jpeg', 0.95);
-    let remainingHeight = imageHeight;
-    let position = 0;
-
-    pdf.addImage(image, 'JPEG', 0, position, pageWidth, imageHeight);
-    remainingHeight -= pageHeight;
-    while (remainingHeight > 0) {
-      position -= pageHeight;
-      pdf.addPage();
-      pdf.addImage(image, 'JPEG', 0, position, pageWidth, imageHeight);
-      remainingHeight -= pageHeight;
-    }
+    pdf.addImage(image, 'JPEG', 0, 0, 148, 210);
     const fileName = `receipt-${safeName}.pdf`;
     const pdfBlob = pdf.output('blob');
     const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
@@ -988,6 +990,42 @@ async function downloadRentalReceipt(rental) {
   } finally {
     receipt.remove();
   }
+}
+
+function fitRentalReceiptPreview() {
+  const paper = els.rentalReceiptPaperStage?.querySelector('.billing-paper');
+  const scroll = els.rentalReceiptPreviewScroll;
+  if (!paper || !scroll) return;
+
+  paper.style.transform = 'none';
+  const availableWidth = Math.max(1, scroll.clientWidth - 34);
+  const scale = Math.min(1, availableWidth / paper.offsetWidth);
+  paper.style.transformOrigin = 'top left';
+  paper.style.transform = `scale(${scale})`;
+  els.rentalReceiptPaperStage.style.width = `${Math.ceil(paper.offsetWidth * scale)}px`;
+  els.rentalReceiptPaperStage.style.height = `${Math.ceil(paper.offsetHeight * scale)}px`;
+}
+
+function openRentalReceiptPreview(rental) {
+  if (!els.rentalReceiptPreviewModal || !els.rentalReceiptPaperStage) return;
+  const source = new DOMParser().parseFromString(buildReceiptHtml(rental), 'text/html');
+  const paper = source.body.querySelector('.billing-paper');
+  if (!paper) return;
+
+  previewReceiptRentalId = rental.id;
+  els.rentalReceiptPaperStage.innerHTML = paper.outerHTML;
+  els.rentalReceiptPreviewModal.classList.remove('hidden');
+  els.rentalReceiptPreviewModal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('billing-modal-open');
+  requestAnimationFrame(() => requestAnimationFrame(fitRentalReceiptPreview));
+}
+
+function closeRentalReceiptPreview() {
+  if (!els.rentalReceiptPreviewModal) return;
+  previewReceiptRentalId = null;
+  els.rentalReceiptPreviewModal.classList.add('hidden');
+  els.rentalReceiptPreviewModal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('billing-modal-open');
 }
 
 
@@ -1718,7 +1756,7 @@ function handleTableClick(e) {
   if (!rental) return;
 
   if (action === 'download-receipt') {
-    downloadRentalReceipt(rental);
+    openRentalReceiptPreview(rental);
     return;
   }
   if (!rental) return;
@@ -1820,6 +1858,13 @@ function initEventListeners() {
   els.tableBody.addEventListener('click', handleTableClick);
   els.rentalsCards.addEventListener('click', handleTableClick);
   els.detailModal?.addEventListener('click', handleTableClick);
+  els.rentalReceiptPreviewModal?.addEventListener('click', (event) => {
+    if (event.target.closest('[data-action="close-receipt-preview"]')) closeRentalReceiptPreview();
+  });
+  els.rentalReceiptPdfBtn?.addEventListener('click', () => {
+    const rental = rentals.find((item) => item.id === previewReceiptRentalId);
+    if (rental) downloadRentalReceipt(rental);
+  });
   els.analyticsHistoryModal?.addEventListener('click', (event) => {
     if (event.target.closest('[data-action="close-analytics-history"]')) closeAnalyticsHistory();
   });
@@ -1834,7 +1879,12 @@ function initEventListeners() {
       return;
     }
     if (!els.restorePreviewModal?.classList.contains('hidden')) closeRestorePreview();
+    else if (!els.rentalReceiptPreviewModal?.classList.contains('hidden')) closeRentalReceiptPreview();
     else if (activeDetailRentalId) closeDetailModal();
+  });
+
+  window.addEventListener('resize', () => {
+    if (!els.rentalReceiptPreviewModal?.classList.contains('hidden')) fitRentalReceiptPreview();
   });
 
   els.searchInput.addEventListener('input', () => {
