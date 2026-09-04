@@ -1166,6 +1166,35 @@ html[lang="si"] .billing-paper-brand h1 {
   font-size: 2.2mm;
 }
 
+.billing-signatures strong {
+  display: block;
+  margin-bottom: 0.8mm;
+  font-family: "Brush Script MT", "Segoe Script", cursive;
+  font-size: 3.4mm;
+  font-weight: 600;
+}
+
+.billing-signatures .customer-name {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 2.65mm;
+  font-weight: 700;
+}
+
+.billing-signatures small {
+  display: block;
+  font-size: 2.2mm;
+}
+
+.billing-signatures .rental-signature {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.billing-signatures .rental-signature small {
+  padding-top: 1.4mm;
+  border-top: 0.3mm solid #4a433c;
+}
+
 /* ---------- Tablet ---------- */
 
 @media (min-width: 641px) and (max-width: 1023px) {
