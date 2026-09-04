@@ -86,6 +86,7 @@ const els = {
   rentalReceiptPreviewScroll: $('rentalReceiptPreviewScroll'),
   rentalReceiptPaperStage: $('rentalReceiptPaperStage'),
   rentalReceiptPdfBtn: $('rentalReceiptPdfBtn'),
+  rentalReceiptWhatsAppBtn: $('rentalReceiptWhatsAppBtn'),
   analyticsTopColorsValue: $('analyticsTopColorsValue'),
   analyticsOverdueRateValue: $('analyticsOverdueRateValue'),
   syncStatus: $('syncStatus'),
@@ -798,6 +799,28 @@ function renderNotesCell(notes, maxLength = 28) {
 function getPhoneLink(phone) {
   const digits = String(phone || '').replace(/[^\d+]/g, '');
   return digits ? `tel:${digits}` : '#';
+}
+
+function getWhatsAppNumber(phone) {
+  let digits = String(phone || '').replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  // Customer numbers are usually saved locally as 07X XXX XXXX. WhatsApp
+  // requires the international form, without the leading plus sign.
+  if (/^0?7\d{8}$/.test(digits)) {
+    digits = `94${digits.replace(/^0/, '')}`;
+  }
+  return digits;
+}
+
+function openReceiptWhatsApp(rental) {
+  const number = getWhatsAppNumber(rental.phoneNumber);
+  if (!number) {
+    showToast(t('toastWhatsAppPhoneMissing'), 'error');
+    return;
+  }
+
+  const message = t('shareReceiptWhatsAppText', { name: rental.customerName || '' });
+  window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
 }
 
 function renderPhoneLink(phone) {
@@ -1864,6 +1887,10 @@ function initEventListeners() {
   els.rentalReceiptPdfBtn?.addEventListener('click', () => {
     const rental = rentals.find((item) => item.id === previewReceiptRentalId);
     if (rental) downloadRentalReceipt(rental);
+  });
+  els.rentalReceiptWhatsAppBtn?.addEventListener('click', () => {
+    const rental = rentals.find((item) => item.id === previewReceiptRentalId);
+    if (rental) openReceiptWhatsApp(rental);
   });
   els.analyticsHistoryModal?.addEventListener('click', (event) => {
     if (event.target.closest('[data-action="close-analytics-history"]')) closeAnalyticsHistory();
