@@ -97,6 +97,7 @@ const els = {
   previewEditBtn: $('billingPreviewEditBtn'),
   printBtn: $('billingPrintBtn'),
   pdfBtn: $('billingPdfBtn'),
+  whatsappBtn: $('billingWhatsAppBtn'),
   paper: $('billingPaper'),
   paperStage: $('billingPaperStage'),
   previewScroll: $('billingPreviewScroll'),
@@ -136,6 +137,33 @@ function formatMoney(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function getWhatsAppNumber(phone) {
+  let digits = String(phone || '').replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  // Convert commonly entered Sri Lankan local mobile numbers (07X XXX XXXX)
+  // to WhatsApp's required international format.
+  if (/^0?7\d{8}$/.test(digits)) {
+    digits = `94${digits.replace(/^0/, '')}`;
+  }
+  return digits;
+}
+
+function shareBillOnWhatsApp() {
+  if (!currentPreviewBill) return;
+
+  const number = getWhatsAppNumber(currentPreviewBill.phone);
+  if (!number) {
+    showToast(t('toastWhatsAppPhoneMissing'), 'error');
+    return;
+  }
+
+  const message = t('shareBillWhatsAppText', {
+    name: currentPreviewBill.customerName || '',
+    number: currentPreviewBill.billNo || '',
+  });
+  window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
 }
 
 function getLocaleSafe() {
@@ -1479,6 +1507,7 @@ function initEvents() {
 
   els.printBtn.addEventListener('click', printPreview);
   els.pdfBtn.addEventListener('click', downloadPreviewPdf);
+  els.whatsappBtn?.addEventListener('click', shareBillOnWhatsApp);
 
   els.logoutBtn.addEventListener('click', () => {
     logout().catch(() => {
