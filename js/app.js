@@ -13,6 +13,8 @@ let activeDetailRentalId = null;
 let activeQuickFilter = 'all';
 let pendingRestore = null;
 let previewReceiptRentalId = null;
+let calendarMonth = new Date(`${todayISO()}T12:00:00`);
+let selectedCalendarDate = todayISO();
 const ITEMS_PER_PAGE = 10;
 let currentPage = 1;
 
@@ -96,6 +98,15 @@ const els = {
   analyticsToggleBtn: $('analyticsToggleBtn'),
   analyticsToggleIcon: $('analyticsToggleIcon'),
   analyticsPanel: $('analyticsPanel'),
+  calendarPrevBtn: $('calendarPrevBtn'),
+  calendarToggleBtn: $('calendarToggleBtn'),
+  calendarContent: $('calendarContent'),
+  calendarTodayBtn: $('calendarTodayBtn'),
+  calendarNextBtn: $('calendarNextBtn'),
+  calendarMonthLabel: $('calendarMonthLabel'),
+  calendarGrid: $('calendarGrid'),
+  calendarSelectedDate: $('calendarSelectedDate'),
+  calendarEvents: $('calendarEvents'),
 };
 
 function todayISO() {
@@ -821,6 +832,103 @@ function openReceiptWhatsApp(rental) {
 
   const message = t('shareReceiptWhatsAppText', { name: rental.customerName || '' });
   window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+}
+
+function dateToISO(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getCalendarEvents(date) {
+  return rentals.flatMap((rental) => {
+    if (rental.status !== 'Pending') return [];
+    const events = [];
+    if (rental.pickupDate === date) events.push({ rental, type: 'pickup' });
+    if (rental.returnDate === date) events.push({ rental, type: 'return' });
+    return events;
+  });
+}
+
+function openWhatsAppReminder(rental, type) {
+  const number = getWhatsAppNumber(rental.phoneNumber);
+  if (!number) {
+    showToast(t('toastWhatsAppPhoneMissing'), 'error');
+    return;
+  }
+
+  const isReturn = type === 'return';
+  const date = formatDate(isReturn ? rental.returnDate : rental.pickupDate);
+  const messageKey = isReturn
+    ? 'whatsAppReturnReminder'
+    : type === 'upcoming' ? 'whatsAppUpcomingReminder' : 'whatsAppPickupReminder';
+  const message = t(messageKey, {
+    name: rental.customerName || '',
+    date,
+  });
+  window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+}
+
+function renderCalendar() {
+  if (!els.calendarGrid || !els.calendarEvents || !els.calendarMonthLabel) return;
+
+  const year = calendarMonth.getFullYear();
+  const month = calendarMonth.getMonth();
+  els.calendarMonthLabel.textContent = new Intl.DateTimeFormat(getDateLocale(), {
+    month: 'long', year: 'numeric',
+  }).format(new Date(year, month, 1));
+
+  const weekdayFormatter = new Intl.DateTimeFormat(getDateLocale(), { weekday: 'short' });
+  const weekdayHeaders = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(2024, 0, 1 + index); // Monday through Sunday
+    return `<div class="bg-slate-100 px-1 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-slate-500">${escapeHtml(weekdayFormatter.format(date))}</div>`;
+  }).join('');
+
+  const firstDayOffset = (new Date(year, month, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const blanks = Array.from({ length: firstDayOffset }, () => '<div class="calendar-day calendar-day-empty bg-slate-50/70"></div>').join('');
+  const days = Array.from({ length: daysInMonth }, (_, index) => {
+    const date = new Date(year, month, index + 1);
+    const iso = dateToISO(date);
+    const events = getCalendarEvents(iso);
+    const pickupCount = events.filter((event) => event.type === 'pickup').length;
+    const upcomingPickupCount = events.filter((event) => event.type === 'pickup' && compareDates(iso, todayISO()) > 0).length;
+    const todayPickupCount = pickupCount - upcomingPickupCount;
+    const returnCount = events.filter((event) => event.type === 'return').length;
+    const isToday = iso === todayISO();
+    const isSelected = iso === selectedCalendarDate;
+    const title = events.length
+      ? `${todayPickupCount ? `${todayPickupCount} ${t('calendarPickup')}` : ''}${todayPickupCount && upcomingPickupCount ? ' · ' : ''}${upcomingPickupCount ? `${upcomingPickupCount} ${t('calendarUpcoming')}` : ''}${(todayPickupCount || upcomingPickupCount) && returnCount ? ' · ' : ''}${returnCount ? `${returnCount} ${t('calendarReturn')}` : ''}`
+      : '';
+    return `<button type="button" data-calendar-date="${iso}" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${index + 1}${title ? `, ${title}` : ''}`)}" class="calendar-day bg-white p-1.5 text-left transition-colors hover:bg-brand-50 ${isSelected ? 'ring-2 ring-inset ring-brand-500' : ''}">
+      <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs font-semibold ${isToday ? 'bg-brand-600 text-white' : 'text-slate-700'}">${index + 1}</span>
+      <span class="mt-1 flex flex-wrap gap-1">${todayPickupCount ? `<span class="rounded bg-sky-100 px-1 py-0.5 text-[9px] font-bold text-sky-800">P ${todayPickupCount}</span>` : ''}${upcomingPickupCount ? `<span class="rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold text-emerald-800">P ${upcomingPickupCount}</span>` : ''}${returnCount ? `<span class="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-800">R ${returnCount}</span>` : ''}</span>
+    </button>`;
+  }).join('');
+  els.calendarGrid.innerHTML = weekdayHeaders + blanks + days;
+
+  const selected = new Date(`${selectedCalendarDate}T12:00:00`);
+  els.calendarSelectedDate.textContent = new Intl.DateTimeFormat(getDateLocale(), {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  }).format(selected);
+  const selectedEvents = getCalendarEvents(selectedCalendarDate);
+  els.calendarEvents.innerHTML = selectedEvents.length
+    ? selectedEvents.map(({ rental, type }) => {
+      const showReminder = type === 'return' || compareDates(rental.pickupDate, todayISO()) > 0;
+      const reminderType = type === 'pickup' ? 'upcoming' : 'return';
+      const reminderButton = showReminder
+        ? `<button type="button" data-action="calendar-reminder" data-id="${rental.id}" data-reminder-type="${reminderType}" class="calendar-reminder-btn rounded-md bg-[#25D366] px-2 py-1 text-[10px] font-semibold leading-tight text-white hover:bg-[#1fb958]" title="${escapeHtml(t('btnWhatsAppReminder'))}">${escapeHtml(t('btnWhatsAppReminder'))}</button>`
+        : '';
+      const eventBadge = type === 'return'
+        ? `<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">${escapeHtml(t('calendarReturn'))}</span>`
+        : renderStatusBadge(rental);
+      return `<article class="rounded-lg border border-slate-200 bg-white p-2.5">
+        <div class="flex items-start justify-between gap-2"><div class="min-w-0"><p class="truncate text-sm font-semibold text-slate-800">${escapeHtml(rental.customerName)}</p><p class="mt-0.5 text-xs font-medium ${type === 'pickup' ? 'text-sky-700' : 'text-amber-700'}">${escapeHtml(type === 'pickup' ? t('calendarPickup') : t('calendarReturn'))} · ${escapeHtml(formatBlazerCodes(rental))}</p></div>${eventBadge}</div>
+        <div class="calendar-event-actions mt-2 flex items-center gap-1.5">${reminderButton}<button type="button" data-action="view-details" data-id="${rental.id}" class="rounded-md border border-slate-300 px-2 py-1 text-[10px] font-semibold leading-tight text-slate-700 hover:bg-slate-50">${escapeHtml(t('btnViewDetails'))}</button></div>
+      </article>`;
+    }).join('')
+    : `<p class="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-center text-xs text-slate-500">${escapeHtml(t('calendarNoBookings'))}</p>`;
 }
 
 function renderPhoneLink(phone) {
@@ -1620,7 +1728,12 @@ function render() {
   renderAnalytics();
   renderQuickFilters();
   renderTable();
+  renderCalendar();
   applyI18n();
+  if (els.calendarToggleBtn) {
+    const isExpanded = els.calendarToggleBtn.getAttribute('aria-expanded') !== 'false';
+    els.calendarToggleBtn.textContent = t(isExpanded ? 'calendarCollapse' : 'calendarExpand');
+  }
 }
 
 function escapeHtml(str) {
@@ -1775,6 +1888,12 @@ function handleTableClick(e) {
     return;
   }
 
+  if (action === 'calendar-reminder') {
+    const rental = rentals.find((item) => item.id === id);
+    if (rental) openWhatsAppReminder(rental, btn.dataset.reminderType || 'pickup');
+    return;
+  }
+
   const rental = rentals.find((r) => r.id === id);
   if (!rental) return;
 
@@ -1881,6 +2000,32 @@ function initEventListeners() {
   els.tableBody.addEventListener('click', handleTableClick);
   els.rentalsCards.addEventListener('click', handleTableClick);
   els.detailModal?.addEventListener('click', handleTableClick);
+  els.calendarEvents?.addEventListener('click', handleTableClick);
+  els.calendarGrid?.addEventListener('click', (event) => {
+    const day = event.target.closest('[data-calendar-date]');
+    if (!day) return;
+    selectedCalendarDate = day.dataset.calendarDate;
+    renderCalendar();
+  });
+  els.calendarPrevBtn?.addEventListener('click', () => {
+    calendarMonth.setMonth(calendarMonth.getMonth() - 1);
+    renderCalendar();
+  });
+  els.calendarToggleBtn?.addEventListener('click', () => {
+    const isExpanded = els.calendarToggleBtn.getAttribute('aria-expanded') === 'true';
+    els.calendarContent?.classList.toggle('hidden', isExpanded);
+    els.calendarToggleBtn.setAttribute('aria-expanded', String(!isExpanded));
+    els.calendarToggleBtn.textContent = t(isExpanded ? 'calendarExpand' : 'calendarCollapse');
+  });
+  els.calendarTodayBtn?.addEventListener('click', () => {
+    selectedCalendarDate = todayISO();
+    calendarMonth = new Date(`${selectedCalendarDate}T12:00:00`);
+    renderCalendar();
+  });
+  els.calendarNextBtn?.addEventListener('click', () => {
+    calendarMonth.setMonth(calendarMonth.getMonth() + 1);
+    renderCalendar();
+  });
   els.rentalReceiptPreviewModal?.addEventListener('click', (event) => {
     if (event.target.closest('[data-action="close-receipt-preview"]')) closeRentalReceiptPreview();
   });

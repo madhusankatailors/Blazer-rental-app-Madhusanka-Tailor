@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <base href="./">
@@ -37,9 +38,12 @@
   </script>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
+
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
-  <div id="toastContainer" class="fixed bottom-4 left-4 right-4 z-[60] flex flex-col items-stretch gap-2 pointer-events-none sm:left-auto sm:right-4 sm:w-[22rem] sm:max-w-[calc(100vw-2rem)]"></div>
+  <div id="toastContainer"
+    class="fixed bottom-4 left-4 right-4 z-[60] flex flex-col items-stretch gap-2 pointer-events-none sm:left-auto sm:right-4 sm:w-[22rem] sm:max-w-[calc(100vw-2rem)]">
+  </div>
 
   <div id="appLoading" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-50">
     <div class="text-center px-4">
@@ -52,9 +56,11 @@
     <div class="max-w-7xl mx-auto px-3 py-3 sm:py-4 sm:px-4 lg:px-6">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0 flex-1">
-          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight leading-tight" data-i18n="appTitle">Blazer Rental Management</h1>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight leading-tight" data-i18n="appTitle">Blazer
+            Rental Management</h1>
           <p class="text-brand-100 text-xs sm:text-sm mt-1" data-i18n="businessName">Madhusanka Tailors</p>
-          <button type="button" id="newBookingBtn" aria-controls="bookingFormSection" aria-expanded="false" class="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-brand-800 shadow-sm hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-brand-800 transition-colors">
+          <button type="button" id="newBookingBtn" aria-controls="bookingFormSection" aria-expanded="false"
+            class="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-brand-800 shadow-sm hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-brand-800 transition-colors">
             <span aria-hidden="true">+</span><span data-i18n="btnNewBooking">New Booking Blazer</span>
           </button>
         </div>
@@ -74,8 +80,11 @@
               <button type="button" id="logoutBtn" class="app-settings-logout" data-i18n="btnLogout">Logout</button>
             </div>
           </details>
-          <p id="syncStatus" class="app-sync-status text-brand-100 text-[10px] sm:text-xs font-medium text-right leading-snug"></p>
-          <p id="todayDisplay" class="text-brand-100 text-xs sm:text-sm font-medium text-right max-w-[12rem] sm:max-w-none leading-snug"></p>
+          <p id="syncStatus"
+            class="app-sync-status text-brand-100 text-[10px] sm:text-xs font-medium text-right leading-snug"></p>
+          <p id="todayDisplay"
+            class="text-brand-100 text-xs sm:text-sm font-medium text-right max-w-[12rem] sm:max-w-none leading-snug">
+          </p>
         </div>
       </div>
     </div>
@@ -84,78 +93,146 @@
   <main class="max-w-7xl mx-auto px-3 py-3 sm:py-4 sm:px-4 lg:px-6 space-y-3 sm:space-y-4 safe-x">
 
     <section class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
-        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-500 uppercase tracking-wide leading-tight" data-i18n="statTotalBookings">Total Bookings</p>
+      <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
+        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-500 uppercase tracking-wide leading-tight"
+          data-i18n="statTotalBookings">Total Bookings</p>
         <p id="statTotal" class="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mt-1">0</p>
       </div>
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
-        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-500 uppercase tracking-wide leading-tight" data-i18n="statActiveRentals">Active Rentals</p>
+      <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
+        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-500 uppercase tracking-wide leading-tight"
+          data-i18n="statActiveRentals">Active Rentals</p>
         <p id="statActive" class="text-xl sm:text-2xl lg:text-3xl font-bold text-brand-600 mt-1">0</p>
       </div>
-      <div class="bg-red-50 rounded-xl shadow-sm border border-red-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
-        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-red-600 uppercase tracking-wide leading-tight" data-i18n="statOverdueItems">Overdue Items</p>
+      <div
+        class="bg-red-50 rounded-xl shadow-sm border border-red-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
+        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-red-600 uppercase tracking-wide leading-tight"
+          data-i18n="statOverdueItems">Overdue Items</p>
         <p id="statOverdue" class="text-xl sm:text-2xl lg:text-3xl font-bold text-red-700 mt-1">0</p>
       </div>
-      <div class="bg-amber-50 rounded-xl shadow-sm border border-amber-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
-        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-amber-700 uppercase tracking-wide leading-tight" data-i18n="statTodayReturns">Today's Returns Due</p>
+      <div
+        class="bg-amber-50 rounded-xl shadow-sm border border-amber-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
+        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-amber-700 uppercase tracking-wide leading-tight"
+          data-i18n="statTodayReturns">Today's Returns Due</p>
         <p id="statTodayReturns" class="text-xl sm:text-2xl lg:text-3xl font-bold text-amber-800 mt-1">0</p>
       </div>
-      <div class="bg-sky-50 rounded-xl shadow-sm border border-sky-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
-        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-sky-700 uppercase tracking-wide leading-tight" data-i18n="statTodayGoingBlazers">Today's Going Blazers</p>
+      <div
+        class="bg-sky-50 rounded-xl shadow-sm border border-sky-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
+        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-sky-700 uppercase tracking-wide leading-tight"
+          data-i18n="statTodayGoingBlazers">Today's Going Blazers</p>
         <p id="statTodayGoingBlazers" class="text-xl sm:text-2xl lg:text-3xl font-bold text-sky-800 mt-1">0</p>
       </div>
-      <div class="bg-violet-50 rounded-xl shadow-sm border border-violet-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
-        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-violet-700 uppercase tracking-wide leading-tight" data-i18n="statOutstandingBalance">Outstanding Balance</p>
+      <div
+        class="bg-violet-50 rounded-xl shadow-sm border border-violet-200 p-3 sm:p-4 lg:p-5 min-h-[5.5rem] sm:min-h-0 flex flex-col justify-center">
+        <p class="text-[10px] sm:text-xs lg:text-sm font-medium text-violet-700 uppercase tracking-wide leading-tight"
+          data-i18n="statOutstandingBalance">Outstanding Balance</p>
         <p id="statOutstandingBalance" class="text-xl sm:text-2xl lg:text-3xl font-bold text-violet-800 mt-1">Rs. 0</p>
       </div>
     </section>
 
     <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <button type="button" id="analyticsToggleBtn" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200">
+      <button type="button" id="analyticsToggleBtn"
+        class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
           <span class="text-sm font-semibold text-slate-900" data-i18n="analyticsMenuLabel">Business Analytics</span>
         </div>
-        <svg id="analyticsToggleIcon" class="w-5 h-5 text-slate-600 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+        <svg id="analyticsToggleIcon" class="w-5 h-5 text-slate-600 transition-transform" fill="none"
+          stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
         </svg>
       </button>
 
       <div id="analyticsPanel" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 p-4">
-        <button type="button" id="analyticsDailyCard" class="text-left bg-slate-50 rounded-lg border border-slate-200 p-4 hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
-          <p class="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide" data-i18n="analyticsDailySales">Daily Sales</p>
+        <button type="button" id="analyticsDailyCard"
+          class="text-left bg-slate-50 rounded-lg border border-slate-200 p-4 hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
+          <p class="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide"
+            data-i18n="analyticsDailySales">Daily Sales</p>
           <p id="analyticsDailySalesValue" class="mt-2 text-xl sm:text-2xl font-bold text-slate-900">Rs. 0</p>
           <p class="mt-2 text-xs text-slate-500" data-i18n="analyticsTodaySummary">Bookings made today</p>
-          <p class="mt-2 text-[11px] font-semibold text-brand-600" data-i18n="analyticsViewHistory">View daily history →</p>
+          <p class="mt-2 text-[11px] font-semibold text-brand-600" data-i18n="analyticsViewHistory">View daily history →
+          </p>
         </button>
 
-        <button type="button" id="analyticsMonthlyCard" class="text-left bg-slate-50 rounded-lg border border-slate-200 p-4 hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
-          <p class="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide" data-i18n="analyticsMonthlyRevenue">Monthly Revenue</p>
+        <button type="button" id="analyticsMonthlyCard"
+          class="text-left bg-slate-50 rounded-lg border border-slate-200 p-4 hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
+          <p class="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide"
+            data-i18n="analyticsMonthlyRevenue">Monthly Revenue</p>
           <p id="analyticsMonthlyRevenueValue" class="mt-2 text-xl sm:text-2xl font-bold text-slate-900">Rs. 0</p>
           <p class="mt-2 text-xs text-slate-500" data-i18n="analyticsMonthSummary">This month</p>
-          <p class="mt-2 text-[11px] font-semibold text-brand-600" data-i18n="analyticsViewHistory">View monthly history →</p>
+          <p class="mt-2 text-[11px] font-semibold text-brand-600" data-i18n="analyticsViewHistory">View monthly history
+            →</p>
         </button>
 
         <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-          <p class="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide" data-i18n="analyticsTopColors">Best-selling Colors</p>
+          <p class="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide"
+            data-i18n="analyticsTopColors">Best-selling Colors</p>
           <p id="analyticsTopColorsValue" class="mt-2 text-sm sm:text-base font-semibold text-slate-900">—</p>
           <p class="mt-2 text-xs text-slate-500" data-i18n="analyticsColorSummary">Most rented color</p>
         </div>
 
         <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-          <p class="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide" data-i18n="analyticsOverdueRate">Overdue Rate</p>
+          <p class="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide"
+            data-i18n="analyticsOverdueRate">Overdue Rate</p>
           <p id="analyticsOverdueRateValue" class="mt-2 text-xl sm:text-2xl font-bold text-slate-900">0%</p>
           <p class="mt-2 text-xs text-slate-500" data-i18n="analyticsOverdueSummary">Pending bookings overdue</p>
         </div>
       </div>
     </section>
 
-    <section id="bookingFormSection" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible" hidden>
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div
+        class="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900" data-i18n="calendarTitle">Rental Calendar</h2>
+          <p class="text-sm text-slate-500 mt-0.5" data-i18n="calendarSubtitle">Pickup and return bookings at a glance
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <button id="calendarToggleBtn" type="button"
+            class="order-first w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:order-none sm:w-auto"
+            aria-controls="calendarContent" aria-expanded="false" data-i18n="calendarExpand">Expand calendar</button>
+          <button id="calendarPrevBtn" type="button"
+            class="h-9 w-9 rounded-lg border border-slate-300 bg-white text-slate-700 font-bold hover:bg-slate-50"
+            aria-label="Previous month">‹</button>
+          <button id="calendarTodayBtn" type="button"
+            class="hidden sm:inline-flex h-9 rounded-lg border border-brand-200 bg-brand-50 px-2.5 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+            data-i18n="calendarToday">Today</button>
+          <p id="calendarMonthLabel"
+            class="min-w-0 flex-1 text-center text-sm font-semibold text-slate-800 sm:min-w-[10rem]"></p>
+          <button id="calendarNextBtn" type="button"
+            class="h-9 w-9 rounded-lg border border-slate-300 bg-white text-slate-700 font-bold hover:bg-slate-50"
+            aria-label="Next month">›</button>
+        </div>
+      </div>
+      <div id="calendarContent"
+        class="calendar-content calendar-layout hidden grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(18rem,1fr)]">
+        <div id="calendarGrid" class="calendar-grid grid grid-cols-7 gap-px bg-slate-200 p-px"></div>
+        <aside class="calendar-events-panel border-t border-slate-200 bg-slate-50 p-3 lg:border-l lg:border-t-0">
+          <h3 id="calendarSelectedDate" class="text-sm font-bold text-slate-800"></h3>
+          <div id="calendarEvents" class="mt-3 space-y-2"></div>
+        </aside>
+      </div>
+      <div class="px-4 py-2 border-t border-slate-200 bg-white flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+        <span><span class="inline-block h-2 w-2 rounded-full bg-sky-500 mr-1"></span><span
+            data-i18n="calendarPickup">Pickup today</span></span>
+        <span><span class="inline-block h-2 w-2 rounded-full bg-emerald-500 mr-1"></span><span
+            data-i18n="calendarUpcoming">Upcoming pickup</span></span>
+        <span><span class="inline-block h-2 w-2 rounded-full bg-amber-500 mr-1"></span><span
+            data-i18n="calendarReturn">Return</span></span>
+      </div>
+    </section>
+
+    <section id="bookingFormSection" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible"
+      hidden>
       <div class="px-3 py-3 sm:px-4 sm:py-4 border-b border-slate-200 bg-slate-50">
-          <h2 id="formTitle" class="text-lg font-semibold text-slate-900">New Rental Booking</h2>
-          <p id="formSubtitle" class="text-sm text-slate-500 mt-0.5">Fill in the details below to create a new rental entry.</p>
+        <h2 id="formTitle" class="text-lg font-semibold text-slate-900">New Rental Booking</h2>
+        <p id="formSubtitle" class="text-sm text-slate-500 mt-0.5">Fill in the details below to create a new rental
+          entry.</p>
       </div>
       <form id="rentalForm" class="p-3 sm:p-4">
         <input type="hidden" id="editId" value="" />
@@ -163,7 +240,8 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
 
           <div>
-            <label for="customerName" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelCustomerName">Customer Name</label>
+            <label for="customerName" class="block text-sm font-medium text-slate-700 mb-1"
+              data-i18n="labelCustomerName">Customer Name</label>
             <input type="text" id="customerName" required
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               data-i18n-placeholder="placeholderFullName" placeholder="Full name" />
@@ -171,13 +249,21 @@
 
           <div>
             <div class="flex items-center justify-between gap-2 mb-1">
-              <label for="phoneNumber" class="block text-sm font-medium text-slate-700" data-i18n="labelPhoneNumber">Phone Number</label>
-              <button type="button" id="phoneNumber2Toggle" class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-brand-300 bg-brand-50 text-brand-700 text-lg leading-none hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-500" aria-expanded="false" aria-controls="phoneNumber2Wrap" title="Add another phone number">+</button>
+              <label for="phoneNumber" class="block text-sm font-medium text-slate-700"
+                data-i18n="labelPhoneNumber">Phone Number</label>
+              <button type="button" id="phoneNumber2Toggle"
+                class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-brand-300 bg-brand-50 text-brand-700 text-lg leading-none hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                aria-expanded="false" aria-controls="phoneNumber2Wrap" title="Add another phone number">+</button>
             </div>
-            <input type="tel" id="phoneNumber" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" placeholder="07X XXX XXXX" />
+            <input type="tel" id="phoneNumber" required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              placeholder="07X XXX XXXX" />
             <div id="phoneNumber2Wrap" class="hidden mt-2">
-              <label for="phoneNumber2" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="labelPhoneNumber2">Second Phone Number</label>
-              <input type="tel" id="phoneNumber2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" placeholder="07X XXX XXXX" />
+              <label for="phoneNumber2" class="block text-xs font-medium text-slate-600 mb-1"
+                data-i18n="labelPhoneNumber2">Second Phone Number</label>
+              <input type="tel" id="phoneNumber2"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                placeholder="07X XXX XXXX" />
             </div>
           </div>
 
@@ -186,28 +272,34 @@
               <span class="block text-sm font-medium text-slate-700" data-i18n="labelBlazers">Blazers</span>
               <button type="button" id="addBlazerBtn"
                 class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-brand-300 bg-brand-50 text-brand-700 text-xs font-semibold hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
                 <span data-i18n="btnAddBlazer">Add Blazer</span>
               </button>
             </div>
             <div id="blazersList" class="space-y-3"></div>
-            <p class="text-xs text-slate-400 mt-2" data-i18n="blazersHint">Add one or more blazer codes for this customer. Total price is calculated automatically.</p>
+            <p class="text-xs text-slate-400 mt-2" data-i18n="blazersHint">Add one or more blazer codes for this
+              customer. Total price is calculated automatically.</p>
           </div>
 
           <div>
-            <label for="bookingDate" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelBookingDate">Booking Date</label>
+            <label for="bookingDate" class="block text-sm font-medium text-slate-700 mb-1"
+              data-i18n="labelBookingDate">Booking Date</label>
             <input type="date" id="bookingDate"
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
           </div>
 
           <div>
-            <label for="pickupDate" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelPickupDate">Pickup Date</label>
+            <label for="pickupDate" class="block text-sm font-medium text-slate-700 mb-1"
+              data-i18n="labelPickupDate">Pickup Date</label>
             <input type="date" id="pickupDate" required
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
           </div>
 
           <div>
-            <label for="returnDate" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelReturnDate">Return Date</label>
+            <label for="returnDate" class="block text-sm font-medium text-slate-700 mb-1"
+              data-i18n="labelReturnDate">Return Date</label>
             <input type="date" id="returnDate" required
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
             <p class="text-xs text-slate-400 mt-1" data-i18n="returnDateHint">Auto-set to Pickup + 2 days (editable)</p>
@@ -220,39 +312,47 @@
               <label class="payment-type-option">
                 <input type="radio" name="paymentType" value="full" checked class="sr-only" />
                 <span class="block text-sm font-semibold text-slate-800" data-i18n="paymentFull">Paid in Full</span>
-                <span class="block text-xs text-slate-500 mt-0.5" data-i18n="paymentFullHint">Customer paid everything now</span>
+                <span class="block text-xs text-slate-500 mt-0.5" data-i18n="paymentFullHint">Customer paid everything
+                  now</span>
               </label>
               <label class="payment-type-option">
                 <input type="radio" name="paymentType" value="advance" class="sr-only" />
                 <span class="block text-sm font-semibold text-slate-800" data-i18n="paymentAdvance">Advance Only</span>
-                <span class="block text-xs text-slate-500 mt-0.5" data-i18n="paymentAdvanceHint">Customer pays rest on pickup day</span>
+                <span class="block text-xs text-slate-500 mt-0.5" data-i18n="paymentAdvanceHint">Customer pays rest on
+                  pickup day</span>
               </label>
               <label class="payment-type-option">
                 <input type="radio" name="paymentType" value="unpaid" class="sr-only" />
                 <span class="block text-sm font-semibold text-slate-800" data-i18n="paymentUnpaid">Not Paid</span>
-                <span class="block text-xs text-slate-500 mt-0.5" data-i18n="paymentUnpaidHint">Pay when the blazer is returned</span>
+                <span class="block text-xs text-slate-500 mt-0.5" data-i18n="paymentUnpaidHint">Pay when the blazer is
+                  returned</span>
               </label>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label for="totalPrice" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="labelTotalPrice">Total Price (Rs.)</label>
+                <label for="totalPrice" class="block text-xs font-medium text-slate-600 mb-1"
+                  data-i18n="labelTotalPrice">Total Price (Rs.)</label>
                 <input type="number" id="totalPrice" min="0" step="1" readonly
                   class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 cursor-not-allowed" />
               </div>
 
               <div id="advanceFieldWrap" hidden>
-                <label for="advancePaid" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="labelPaidNow">advance money (Rs.)</label>
+                <label for="advancePaid" class="block text-xs font-medium text-slate-600 mb-1"
+                  data-i18n="labelPaidNow">advance money (Rs.)</label>
                 <input type="number" id="advancePaid" min="0" step="1" value="0"
                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
               </div>
 
-              <div id="balanceSummary" class="rounded-lg border border-slate-200 bg-white px-3 py-2 min-h-[2.75rem] flex flex-col justify-center"></div>
+              <div id="balanceSummary"
+                class="rounded-lg border border-slate-200 bg-white px-3 py-2 min-h-[2.75rem] flex flex-col justify-center">
+              </div>
             </div>
           </div>
 
           <div>
-            <label for="depositType" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelDepositType">Deposit / ID Kept</label>
+            <label for="depositType" class="block text-sm font-medium text-slate-700 mb-1"
+              data-i18n="labelDepositType">Deposit / ID Kept</label>
             <select id="depositType"
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
               <option value="National ID" data-i18n-option="depositNationalId">National ID</option>
@@ -263,7 +363,8 @@
           </div>
 
           <div>
-            <label for="status" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelStatus">Status</label>
+            <label for="status" class="block text-sm font-medium text-slate-700 mb-1"
+              data-i18n="labelStatus">Status</label>
             <select id="status"
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
               <option value="Pending" data-i18n-option="statusPending">Pending</option>
@@ -272,11 +373,14 @@
           </div>
 
           <div class="sm:col-span-2 lg:col-span-3">
-            <label for="notes" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelNotes">Additional Notes</label>
+            <label for="notes" class="block text-sm font-medium text-slate-700 mb-1" data-i18n="labelNotes">Additional
+              Notes</label>
             <textarea id="notes" rows="2"
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 resize-y min-h-[4.5rem]"
-              data-i18n-placeholder="placeholderNotes" placeholder="e.g. needs alteration, wedding on Saturday, special instructions..."></textarea>
-            <p class="text-xs text-slate-400 mt-1" data-i18n="notesHint">Optional — add any extra details for this booking.</p>
+              data-i18n-placeholder="placeholderNotes"
+              placeholder="e.g. needs alteration, wedding on Saturday, special instructions..."></textarea>
+            <p class="text-xs text-slate-400 mt-1" data-i18n="notesHint">Optional — add any extra details for this
+              booking.</p>
           </div>
         </div>
 
@@ -296,25 +400,34 @@
 
     <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
       <div class="px-3 py-3 sm:px-4 sm:py-4 border-b border-slate-200 bg-slate-50 space-y-3">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold text-slate-900" data-i18n="dashboardTitle">Rental Dashboard</h2>
-            <p class="text-sm text-slate-500 mt-0.5" data-i18n="dashboardSubtitle">All bookings with overdue tracking</p>
+            <p class="text-sm text-slate-500 mt-0.5" data-i18n="dashboardSubtitle">All bookings with overdue tracking
+            </p>
           </div>
 
           <div id="quickFilters" class="flex flex-wrap gap-2" aria-label="Quick booking filters">
             <button type="button" data-quick-filter="all" class="quick-filter-btn" data-i18n="filterAll">All</button>
-            <button type="button" data-quick-filter="pickups-today" class="quick-filter-btn" data-i18n="filterPickupsToday">Today Pickups</button>
-            <button type="button" data-quick-filter="returns-today" class="quick-filter-btn" data-i18n="filterReturnsToday">Returns Due</button>
-            <button type="button" data-quick-filter="overdue" class="quick-filter-btn" data-i18n="filterOverdue">Overdue</button>
-            <button type="button" data-quick-filter="pending" class="quick-filter-btn" data-i18n="filterPending">Pending</button>
-            <button type="button" data-quick-filter="returned" class="quick-filter-btn" data-i18n="filterReturned">Returned</button>
+            <button type="button" data-quick-filter="pickups-today" class="quick-filter-btn"
+              data-i18n="filterPickupsToday">Today Pickups</button>
+            <button type="button" data-quick-filter="returns-today" class="quick-filter-btn"
+              data-i18n="filterReturnsToday">Returns Due</button>
+            <button type="button" data-quick-filter="overdue" class="quick-filter-btn"
+              data-i18n="filterOverdue">Overdue</button>
+            <button type="button" data-quick-filter="pending" class="quick-filter-btn"
+              data-i18n="filterPending">Pending</button>
+            <button type="button" data-quick-filter="returned" class="quick-filter-btn"
+              data-i18n="filterReturned">Returned</button>
           </div>
           <div class="relative w-full sm:w-72">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none"
+              stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <input type="search" id="searchInput" data-i18n-placeholder="searchPlaceholder" placeholder="Search code, name, phone..."
+            <input type="search" id="searchInput" data-i18n-placeholder="searchPlaceholder"
+              placeholder="Search code, name, phone..."
               class="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
           </div>
         </div>
@@ -322,7 +435,8 @@
         <div class="flex flex-col lg:flex-row lg:items-end gap-3 pt-3 sm:pt-4 border-t border-slate-200">
           <div class="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 flex-1">
             <div>
-              <label for="dateFilterField" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="filterDateField">Filter by Date</label>
+              <label for="dateFilterField" class="block text-xs font-medium text-slate-600 mb-1"
+                data-i18n="filterDateField">Filter by Date</label>
               <select id="dateFilterField"
                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
                 <option value="bookingDate" data-i18n-option="filterBookingDate">Booking Date</option>
@@ -331,12 +445,14 @@
               </select>
             </div>
             <div>
-              <label for="dateFrom" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="filterFromDate">From</label>
+              <label for="dateFrom" class="block text-xs font-medium text-slate-600 mb-1"
+                data-i18n="filterFromDate">From</label>
               <input type="date" id="dateFrom"
                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white" />
             </div>
             <div>
-              <label for="dateTo" class="block text-xs font-medium text-slate-600 mb-1" data-i18n="filterToDate">To</label>
+              <label for="dateTo" class="block text-xs font-medium text-slate-600 mb-1"
+                data-i18n="filterToDate">To</label>
               <input type="date" id="dateTo"
                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white" />
             </div>
@@ -350,30 +466,42 @@
           </div>
 
           <details class="relative w-full lg:w-auto group">
-            <summary class="list-none cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors">
-              <span data-i18n="toolsLabel">Reports &amp; Tools</span><span aria-hidden="true" class="transition-transform group-open:rotate-180">⌄</span>
+            <summary
+              class="list-none cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors">
+              <span data-i18n="toolsLabel">Reports &amp; Tools</span><span aria-hidden="true"
+                class="transition-transform group-open:rotate-180">⌄</span>
             </summary>
-            <div class="mt-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm space-y-3 lg:absolute lg:right-0 lg:z-10 lg:w-72">
-              <button type="button" id="exportCsvBtn" class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors" data-i18n="btnExportCsv">Export CSV / Excel</button>
+            <div
+              class="mt-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm space-y-3 lg:absolute lg:right-0 lg:z-10 lg:w-72">
+              <button type="button" id="exportCsvBtn"
+                class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
+                data-i18n="btnExportCsv">Export CSV / Excel</button>
               <div>
-                <button type="button" id="backupDataBtn" class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors" data-i18n="btnBackupData">Download Full Backup</button>
+                <button type="button" id="backupDataBtn"
+                  class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors"
+                  data-i18n="btnBackupData">Download Full Backup</button>
                 <p class="mt-1 text-xs text-slate-500" data-i18n="backupHint">JSON file for records and audits.</p>
               </div>
               <div class="border-t border-slate-200 pt-3">
-                <label for="restoreBackupInput" class="block text-sm font-semibold text-slate-800" data-i18n="restoreBackupLabel">Restore Backup</label>
-                <p class="mt-1 text-xs text-slate-500" data-i18n="restoreBackupHint">Choose a JSON backup to preview before restoring.</p>
-                <input id="restoreBackupInput" type="file" accept="application/json,.json" class="mt-2 block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-brand-700 hover:file:bg-brand-100" />
+                <label for="restoreBackupInput" class="block text-sm font-semibold text-slate-800"
+                  data-i18n="restoreBackupLabel">Restore Backup</label>
+                <p class="mt-1 text-xs text-slate-500" data-i18n="restoreBackupHint">Choose a JSON backup to preview
+                  before restoring.</p>
+                <input id="restoreBackupInput" type="file" accept="application/json,.json"
+                  class="mt-2 block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-brand-700 hover:file:bg-brand-100" />
               </div>
               <div class="rounded-md bg-slate-50 p-2.5 text-xs text-slate-600">
                 <p class="font-semibold text-slate-800" data-i18n="helpTitle">Quick help</p>
-                <p class="mt-1" data-i18n="helpText">Use Details to view, edit, print receipts, collect balances, or mark a booking returned.</p>
+                <p class="mt-1" data-i18n="helpText">Use Details to view, edit, print receipts, collect balances, or
+                  mark a booking returned.</p>
               </div>
             </div>
           </details>
         </div>
       </div>
 
-      <p id="mobileCardsHint" class="md:hidden px-4 py-2 text-xs text-slate-400 text-center border-b border-slate-100" data-i18n="mobileCardsHint">Main booking info below — tap Details for full info</p>
+      <p id="mobileCardsHint" class="md:hidden px-4 py-2 text-xs text-slate-400 text-center border-b border-slate-100"
+        data-i18n="mobileCardsHint">Main booking info below — tap Details for full info</p>
 
       <div id="rentalsCards" class="md:hidden divide-y divide-slate-200"></div>
 
@@ -381,13 +509,27 @@
         <table class="w-full divide-y divide-slate-200 text-sm dashboard-table">
           <thead class="bg-slate-100">
             <tr>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thBooking">Booking</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thName">Name</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thCode">Code</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thReturn">Return</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thPayment">Payment</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thStatus">Status</th>
-              <th class="px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap" data-i18n="thDetails">View</th>
+              <th
+                class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap"
+                data-i18n="thBooking">Booking</th>
+              <th
+                class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap"
+                data-i18n="thName">Name</th>
+              <th
+                class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap"
+                data-i18n="thCode">Code</th>
+              <th
+                class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap"
+                data-i18n="thReturn">Return</th>
+              <th
+                class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap"
+                data-i18n="thPayment">Payment</th>
+              <th
+                class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap"
+                data-i18n="thStatus">Status</th>
+              <th
+                class="px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap"
+                data-i18n="thDetails">View</th>
             </tr>
           </thead>
           <tbody id="rentalsTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
@@ -398,24 +540,31 @@
 
       <div id="emptyState" class="hidden px-6 py-12 text-center">
         <svg class="mx-auto h-12 w-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
-        <p class="mt-3 text-sm font-medium text-slate-600" id="emptyTitle" data-i18n="emptyTitle">No rental bookings yet</p>
-        <p class="mt-1 text-sm text-slate-400" id="emptySubtitle" data-i18n="emptySubtitle">Create your first booking using the form above.</p>
+        <p class="mt-3 text-sm font-medium text-slate-600" id="emptyTitle" data-i18n="emptyTitle">No rental bookings yet
+        </p>
+        <p class="mt-1 text-sm text-slate-400" id="emptySubtitle" data-i18n="emptySubtitle">Create your first booking
+          using the form above.</p>
       </div>
     </section>
   </main>
 
-  <div id="detailModal" class="detail-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+  <div id="detailModal" class="detail-modal hidden" aria-hidden="true" role="dialog" aria-modal="true"
+    aria-labelledby="detailModalTitle">
     <div class="detail-modal-backdrop" data-action="close-modal"></div>
     <div class="detail-modal-panel">
       <div class="detail-modal-header">
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-semibold uppercase tracking-wide text-brand-600" data-i18n="detailModalLabel">Booking Details</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-brand-600" data-i18n="detailModalLabel">Booking
+            Details</p>
           <h2 id="detailModalTitle" class="text-lg font-bold text-slate-900 truncate mt-0.5"></h2>
         </div>
         <button type="button" data-action="close-modal" class="detail-modal-close" aria-label="Close">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
       <div id="detailModalBody" class="detail-modal-body"></div>
@@ -423,44 +572,66 @@
     </div>
   </div>
 
-  <div id="restorePreviewModal" class="detail-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="restorePreviewTitle">
+  <div id="restorePreviewModal" class="detail-modal hidden" aria-hidden="true" role="dialog" aria-modal="true"
+    aria-labelledby="restorePreviewTitle">
     <div class="detail-modal-backdrop" data-action="close-restore"></div>
     <div class="detail-modal-panel">
       <div class="detail-modal-header">
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-semibold uppercase tracking-wide text-brand-600" data-i18n="restorePreviewLabel">Restore Preview</p>
-          <h2 id="restorePreviewTitle" class="text-lg font-bold text-slate-900 truncate mt-0.5" data-i18n="restorePreviewTitle">Review Backup Records</h2>
+          <p class="text-xs font-semibold uppercase tracking-wide text-brand-600" data-i18n="restorePreviewLabel">
+            Restore Preview</p>
+          <h2 id="restorePreviewTitle" class="text-lg font-bold text-slate-900 truncate mt-0.5"
+            data-i18n="restorePreviewTitle">Review Backup Records</h2>
         </div>
         <button type="button" data-action="close-restore" class="detail-modal-close" aria-label="Close">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
       <div id="restorePreviewBody" class="detail-modal-body"></div>
       <div class="detail-modal-actions flex flex-col gap-2 sm:flex-row">
-        <button type="button" id="restoreMergeBtn" class="flex-1 rounded-lg bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500" data-i18n="btnRestoreMerge">Merge with Existing</button>
-        <button type="button" id="restoreReplaceBtn" class="flex-1 rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500" data-i18n="btnRestoreReplace">Replace All Data</button>
+        <button type="button" id="restoreMergeBtn"
+          class="flex-1 rounded-lg bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          data-i18n="btnRestoreMerge">Merge with Existing</button>
+        <button type="button" id="restoreReplaceBtn"
+          class="flex-1 rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+          data-i18n="btnRestoreReplace">Replace All Data</button>
       </div>
     </div>
   </div>
 
-  <div id="analyticsHistoryModal" class="detail-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="analyticsHistoryTitle">
+  <div id="analyticsHistoryModal" class="detail-modal hidden" aria-hidden="true" role="dialog" aria-modal="true"
+    aria-labelledby="analyticsHistoryTitle">
     <div class="detail-modal-backdrop" data-action="close-analytics-history"></div>
     <div class="detail-modal-panel">
       <div class="detail-modal-header">
-        <div class="min-w-0 flex-1"><p class="text-xs font-semibold uppercase tracking-wide text-brand-600" data-i18n="analyticsHistoryLabel">Sales History</p><h2 id="analyticsHistoryTitle" class="text-lg font-bold text-slate-900 truncate mt-0.5"></h2></div>
-        <button type="button" data-action="close-analytics-history" class="detail-modal-close" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6L18 18"/></svg></button>
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-semibold uppercase tracking-wide text-brand-600" data-i18n="analyticsHistoryLabel">
+            Sales History</p>
+          <h2 id="analyticsHistoryTitle" class="text-lg font-bold text-slate-900 truncate mt-0.5"></h2>
+        </div>
+        <button type="button" data-action="close-analytics-history" class="detail-modal-close" aria-label="Close"><svg
+            class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6L18 18" />
+          </svg></button>
       </div>
       <div id="analyticsHistoryBody" class="detail-modal-body"></div>
     </div>
   </div>
 
-  <div id="rentalReceiptPreviewModal" class="billing-preview-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Rental receipt preview">
+  <div id="rentalReceiptPreviewModal" class="billing-preview-modal hidden" aria-hidden="true" role="dialog"
+    aria-modal="true" aria-label="Rental receipt preview">
     <div class="billing-preview-backdrop" data-action="close-receipt-preview"></div>
     <div class="billing-preview-panel">
       <div class="billing-preview-actions no-print">
-        <button type="button" data-action="close-receipt-preview" class="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Close</button>
-        <button id="rentalReceiptPdfBtn" type="button" class="px-3 py-2 rounded-lg bg-brand-600 text-white text-xs font-semibold">Download / Share PDF</button>
-        <button id="rentalReceiptWhatsAppBtn" type="button" class="px-3 py-2 rounded-lg bg-[#25D366] text-white text-xs font-semibold hover:bg-[#1fb958]" data-i18n="btnShareWhatsApp">Share on WhatsApp</button>
+        <button type="button" data-action="close-receipt-preview"
+          class="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Close</button>
+        <button id="rentalReceiptPdfBtn" type="button"
+          class="px-3 py-2 rounded-lg bg-brand-600 text-white text-xs font-semibold">Download / Share PDF</button>
+        <button id="rentalReceiptWhatsAppBtn" type="button"
+          class="px-3 py-2 rounded-lg bg-[#25D366] text-white text-xs font-semibold hover:bg-[#1fb958]"
+          data-i18n="btnShareWhatsApp">Share on WhatsApp</button>
       </div>
       <div id="rentalReceiptPreviewScroll" class="billing-preview-scroll">
         <div id="rentalReceiptPaperStage" class="billing-paper-stage"></div>
@@ -469,7 +640,8 @@
   </div>
 
   <footer class="max-w-7xl mx-auto px-3 py-3 sm:py-4 sm:px-4 lg:px-6 text-center text-xs text-slate-400 safe-x">
-    <span data-i18n="footerText" class="leading-relaxed">Data saved locally in your browser · Madhusanka Tailors Blazer Rental System</span>
+    <span data-i18n="footerText" class="leading-relaxed">Data saved locally in your browser · Madhusanka Tailors Blazer
+      Rental System</span>
   </footer>
 
   <script src="js/i18n.js"></script>
@@ -477,4 +649,5 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
+
 </html>
