@@ -215,6 +215,47 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   table-layout: auto;
 }
 
+.calendar-grid {
+  min-width: 0;
+}
+
+.calendar-day {
+  min-height: 6.25rem;
+  min-width: 0;
+}
+
+.calendar-day-empty {
+  min-height: 6.25rem;
+}
+
+.calendar-events-panel {
+  min-width: 0;
+}
+
+.calendar-reminder-btn,
+.calendar-event-actions > button {
+  white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .calendar-day,
+  .calendar-day-empty {
+    min-height: 5.25rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .calendar-day,
+  .calendar-day-empty {
+    min-height: 4.25rem;
+    padding: 0.35rem;
+  }
+
+  .calendar-day .rounded {
+    font-size: 0.55rem;
+  }
+}
+
 .dashboard-table {
   table-layout: fixed;
 }
