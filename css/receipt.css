@@ -1,0 +1,413 @@
+/* ---------- Preview modal ---------- */
+
+.billing-preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(0.75rem, env(safe-area-inset-top))
+    max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom))
+    max(0.75rem, env(safe-area-inset-left));
+}
+
+.billing-preview-modal.hidden {
+  display: none;
+}
+
+.billing-preview-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(15 23 42 / 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.billing-preview-panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 48rem);
+  max-height: calc(100vh - 1.5rem);
+  max-height: calc(100dvh - 1.5rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: rgb(226 232 240);
+  box-shadow: 0 25px 60px rgb(15 23 42 / 0.3);
+}
+
+.billing-preview-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #fff;
+  border-bottom: 1px solid rgb(203 213 225);
+}
+
+.billing-preview-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.billing-paper-stage {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0 auto;
+}
+
+@media (min-width: 641px) and (max-width: 1023px) {
+  .billing-preview-panel { width: min(100%, 44rem); }
+  .billing-preview-scroll { padding: 0.875rem; }
+}
+
+/* Small physical bill book size: A5 portrait, not A4. */
+.billing-paper {
+  position: relative;
+  width: 148mm;
+  min-height: 210mm;
+  margin: 0;
+  padding: 6.5mm 7mm 6mm;
+  background: #fff;
+  color: #25211d;
+  box-shadow: 0 16px 36px rgb(15 23 42 / 0.18);
+  font-family: Arial, Helvetica, sans-serif;
+  transform-origin: top left;
+  will-change: transform;
+}
+
+html[lang="si"] .billing-paper {
+  font-family: "Noto Sans Sinhala", "Iskoola Pota", "Nirmala UI", Arial, sans-serif;
+}
+
+.billing-paper-header {
+  display: grid;
+  grid-template-columns: 30mm 1fr;
+  align-items: center;
+  gap: 4mm;
+  min-height: 27mm;
+}
+
+.billing-paper-logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.billing-paper-logo {
+  display: block;
+  width: 28mm;
+  height: auto;
+}
+
+.billing-paper-brand {
+  text-align: center;
+  min-width: 0;
+}
+
+.billing-paper-brand h1 {
+  margin: 0 0 1.2mm;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 5.4mm;
+  line-height: 1;
+  letter-spacing: 0.16mm;
+  font-weight: 800;
+}
+
+html[lang="si"] .billing-paper-brand h1 {
+  font-family: "Noto Sans Sinhala", "Iskoola Pota", "Nirmala UI", sans-serif;
+  font-size: 5mm;
+  letter-spacing: 0;
+}
+
+.billing-paper-brand p {
+  margin: 0.7mm 0 0;
+  font-size: 2.45mm;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.billing-paper-rule {
+  height: 0.8mm;
+  margin: 1.5mm 0 3.3mm;
+  background: linear-gradient(90deg, #70512a, #c9a56d, #70512a);
+}
+
+.billing-paper-meta {
+  display: grid;
+  grid-template-columns: 1fr 46mm;
+  gap: 4mm;
+  margin-bottom: 3mm;
+}
+
+.billing-paper-meta-left,
+.billing-paper-meta-right {
+  display: grid;
+  gap: 1.6mm;
+}
+
+.billing-paper-meta-left > div,
+.billing-paper-meta-right > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2mm;
+  min-height: 5mm;
+  align-items: end;
+}
+
+.billing-paper-meta span {
+  font-size: 2.65mm;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.billing-paper-meta strong {
+  min-width: 0;
+  padding: 0 1mm 0.6mm;
+  border-bottom: 0.3mm dotted #756b61;
+  font-size: 2.65mm;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.billing-paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 0.4mm solid #2e2a26;
+}
+
+.rental-receipt-render {
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  z-index: -1;
+  width: 148mm;
+  background: #fff;
+}
+
+.clipboard-fallback {
+  position: fixed;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.billing-paper-col-no { width: 8%; }
+.billing-paper-col-description { width: 40%; }
+.billing-paper-col-qty { width: 10%; }
+.billing-paper-col-unit-price { width: 20%; }
+.billing-paper-col-amount { width: 22%; }
+
+.billing-paper-table th,
+.billing-paper-table td {
+  border: 0.3mm solid #3b3733;
+}
+
+.billing-paper-table th {
+  height: 6.6mm;
+  padding: 0.8mm 1mm;
+  background: #2a251f;
+  color: #fff;
+  font-size: 2.5mm;
+  text-align: center;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.billing-paper-table td {
+  height: 6.4mm;
+  padding: 0.6mm 1.2mm;
+  font-size: 2.55mm;
+  line-height: 1.05;
+}
+
+.billing-paper-table td:nth-child(1),
+.billing-paper-table td:nth-child(3) {
+  text-align: center;
+}
+
+.billing-paper-table td:nth-child(4),
+.billing-paper-table td:nth-child(5) {
+  text-align: right;
+  padding-right: 1.5mm;
+  font-variant-numeric: tabular-nums;
+}
+
+.billing-paid-seal {
+  display: none;
+  position: absolute;
+  z-index: 3;
+  right: 57mm;
+  bottom: 27mm;
+  width: 28mm;
+  height: auto;
+  object-fit: contain;
+  opacity: 0.92;
+  transform: rotate(-7deg);
+  pointer-events: none;
+  user-select: none;
+}
+
+.billing-paid-seal.is-visible {
+  display: block;
+}
+
+.billing-paper-bottom {
+  display: grid;
+  grid-template-columns: 1fr 50mm;
+  border: 0.3mm solid #3b3733;
+  border-top: 0;
+}
+
+.billing-paper-dates {
+  display: grid;
+  align-content: center;
+  gap: 2.2mm;
+  padding: 3mm;
+  border-right: 0.3mm solid #3b3733;
+}
+
+.billing-paper-dates > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2mm;
+  align-items: end;
+}
+
+.billing-paper-dates span,
+.billing-paper-summary span {
+  font-size: 2.45mm;
+  font-weight: 700;
+}
+
+.billing-paper-dates strong {
+  padding-bottom: 0.5mm;
+  border-bottom: 0.3mm dotted #756b61;
+  font-size: 2.45mm;
+  text-align: center;
+}
+
+.billing-paper-summary > div {
+  min-height: 7mm;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2mm;
+  align-items: center;
+  padding: 1mm 2mm;
+  border-bottom: 0.3mm solid #3b3733;
+}
+
+.billing-paper-summary > div:last-child {
+  border-bottom: 0;
+}
+
+.billing-paper-summary strong {
+  text-align: right;
+  font-size: 2.75mm;
+}
+
+.billing-paper-balance {
+  background: #f2ece3;
+  font-weight: 900;
+}
+
+.billing-paper-footer {
+  margin-top: 3.2mm;
+}
+
+.billing-paper-footer p {
+  margin: 0;
+  font-size: 2.05mm;
+  line-height: 1.4;
+  text-align: justify;
+}
+
+.billing-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15mm;
+  margin-top: 8mm;
+}
+
+.billing-signatures span {
+  padding-top: 1.4mm;
+  border-top: 0.3mm solid #4a433c;
+  text-align: center;
+  font-size: 2.2mm;
+}
+
+.billing-signatures strong {
+  display: block;
+  margin-bottom: 0.8mm;
+  font-family: "Brush Script MT", "Segoe Script", cursive;
+  font-size: 3.4mm;
+  font-weight: 600;
+}
+
+.billing-signatures .customer-name {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 2.65mm;
+  font-weight: 700;
+}
+
+.billing-signatures small {
+  display: block;
+  font-size: 2.2mm;
+}
+
+.billing-signatures .rental-signature {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.billing-signatures .rental-signature small {
+  padding-top: 1.4mm;
+  border-top: 0.3mm solid #4a433c;
+}
+
+@media (max-width: 767px) {
+  .billing-preview-modal { align-items: stretch; justify-content: stretch; padding: 0; }
+  .billing-preview-panel { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .billing-preview-actions {
+    align-items: stretch;
+    flex-direction: column;
+    padding: max(0.6rem, env(safe-area-inset-top)) max(0.6rem, env(safe-area-inset-right)) 0.6rem max(0.6rem, env(safe-area-inset-left));
+  }
+  .billing-preview-actions > div { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 0.5rem; }
+  .billing-preview-actions button { width: 100%; min-height: 40px; white-space: normal; line-height: 1.15; }
+  .billing-preview-scroll { padding: 0.75rem; }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .billing-preview-actions { flex-direction: row; align-items: center; padding-top: max(0.45rem, env(safe-area-inset-top)); padding-bottom: 0.45rem; }
+  .billing-preview-actions > div { display: flex !important; width: auto; flex: 1 1 0; }
+  .billing-preview-actions > div:last-child { justify-content: flex-end; }
+  .billing-preview-actions button { width: auto; min-height: 34px; flex: 1 1 0; font-size: 0.7rem; padding-top: 0.4rem; padding-bottom: 0.4rem; }
+  .billing-preview-scroll { padding-top: 0.45rem; padding-bottom: max(0.45rem, env(safe-area-inset-bottom)); }
+}
+
+@page { size: 148mm 210mm; margin: 0; }
+
+@media print {
+  html, body { width: 148mm !important; height: 210mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  body * { visibility: hidden !important; }
+  #billingPaper, #billingPaper * { visibility: visible !important; }
+  #billingPaperStage { position: static !important; width: 148mm !important; height: 210mm !important; margin: 0 !important; }
+  #billingPaper { position: absolute !important; left: 0 !important; top: 0 !important; width: 148mm !important; min-height: 210mm !important; margin: 0 !important; transform: none !important; box-shadow: none !important; }
+  .billing-paper-table th, .billing-paper-rule, .billing-paper-balance, .billing-paid-seal { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
