@@ -1,32 +1,52 @@
-import { requireAuth, logout } from './auth.js';
-import { subscribeBills, saveBills as persistBills } from './storage.js';
+import { requireAuth, logout } from "./auth.js";
+import { subscribeBills, saveBills as persistBills } from "./storage.js";
+import {
+  isValidPhoneNumber,
+  updatePhoneFieldState,
+} from "./phone-validation.js";
+import { askAppConfirmation } from "./ui-dialog.js";
 
 const BILL_ITEMS = [
-  { key: 'blazers', en: 'Blazers', si: 'කෝට්' },
-  { key: 'long-trousers', en: 'Long Trousers', si: 'දිග කලිසම්' },
-  { key: 'short-trousers', en: 'Short Trousers', si: 'කොට කලිසම්' },
-  { key: 'long-sleeve-shirt', en: 'Long Sleeve Shirt', si: 'අත් දිග ෂර්ට්' },
-  { key: 'short-sleeve-shirt', en: 'Short Sleeve Shirt', si: 'අත් කොට ෂර්ට්' },
-  { key: 'waistcoat', en: 'Waistcoat', si: 'වෙස් කෝට්' },
-  { key: 'tassel', en: 'Tassel', si: 'ටසල්' },
-  { key: 'sarong', en: 'Sarong', si: 'සරම්' },
-  { key: 'national-suit', en: 'National Suit', si: 'නැෂනල්' },
-  { key: 'tie', en: 'Tie', si: 'ටයි' },
-  { key: 'bow', en: 'Bow', si: 'බෝ' },
-  { key: 'belt', en: 'Belt', si: 'බෙල්ට්' },
-  { key: 'socks', en: 'Socks', si: 'මේස්' },
-  { key: 'cufflinks-tie-pin', en: 'Cufflinks / Tie Pin', si: 'කෆ්ලින් / ටයි පින්' },
-  { key: 'shoes', en: 'Shoes', si: 'සපත්තු' },
-  { key: 'other', en: 'Other / Custom Item', si: 'වෙනත් / අභිරුචි අයිතමය', custom: true },
+  { key: "blazers", en: "Blazers", si: "කෝට්" },
+  { key: "long-trousers", en: "Long Trousers", si: "දිග කලිසම්" },
+  { key: "short-trousers", en: "Short Trousers", si: "කොට කලිසම්" },
+  { key: "long-sleeve-shirt", en: "Long Sleeve Shirt", si: "අත් දිග ෂර්ට්" },
+  { key: "short-sleeve-shirt", en: "Short Sleeve Shirt", si: "අත් කොට ෂර්ට්" },
+  { key: "waistcoat", en: "Waistcoat", si: "වෙස් කෝට්" },
+  { key: "tassel", en: "Tassel", si: "ටසල්" },
+  { key: "sarong", en: "Sarong", si: "සරම්" },
+  { key: "national-suit", en: "National Suit", si: "නැෂනල්" },
+  { key: "tie", en: "Tie", si: "ටයි" },
+  { key: "bow", en: "Bow", si: "බෝ" },
+  { key: "belt", en: "Belt", si: "බෙල්ට්" },
+  { key: "socks", en: "Socks", si: "මේස්" },
+  {
+    key: "cufflinks-tie-pin",
+    en: "Cufflinks / Tie Pin",
+    si: "කෆ්ලින් / ටයි පින්",
+  },
+  { key: "shoes", en: "Shoes", si: "සපත්තු" },
+  {
+    key: "other",
+    en: "Other / Custom Item",
+    si: "වෙනත් / අභිරුචි අයිතමය",
+    custom: true,
+  },
 ];
 
 let bills = [];
-let currentBillId = '';
+let currentBillId = "";
 let currentPreviewBill = null;
 let pendingWrites = 0;
-let syncState = 'loading';
+let syncState = "loading";
 let itemRowCounter = 0;
 let saveInProgress = false;
+const requestedBillId = new URLSearchParams(window.location.search).get(
+  "editBill",
+);
+const requestedCustomer = new URLSearchParams(window.location.search).get(
+  "customer",
+);
 
 const CUSTOMER_PAGE_SIZE = 6;
 const SAVED_BILLS_PAGE_SIZE = 10;
@@ -34,91 +54,91 @@ const CUSTOMER_HISTORY_PAGE_SIZE = 4;
 let customerPage = 1;
 let savedBillsPage = 1;
 let customerHistoryPage = 1;
-let currentCustomerId = '';
+let currentCustomerId = "";
 
 const $ = (id) => document.getElementById(id);
 
 const els = {
-  loading: $('billingLoading'),
-  syncStatus: $('billingSyncStatus'),
-  logoutBtn: $('billingLogoutBtn'),
+  loading: $("billingLoading"),
+  syncStatus: $("billingSyncStatus"),
+  logoutBtn: $("billingLogoutBtn"),
 
-  form: $('billingForm'),
-  formTitle: $('billingFormTitle'),
-  editId: $('billingEditId'),
-  billNo: $('billNo'),
-  billDate: $('billDate'),
-  customerName: $('billCustomerName'),
-  phone: $('billPhone'),
-  receivedDate: $('billReceivedDate'),
-  deliveryDate: $('billDeliveryDate'),
-  paymentType: $('billingPaymentType'),
-  paidAmountWrap: $('billingPaidAmountWrap'),
-  paymentHint: $('billingPaymentHint'),
-  advance: $('billAdvance'),
-  itemsBody: $('billingItemsBody'),
-  formTotal: $('billingFormTotal'),
-  formAdvance: $('billingFormAdvance'),
-  formBalance: $('billingFormBalance'),
-  clearBtn: $('billingClearBtn'),
-  saveBtn: $('billingSaveBtn'),
-  savePreviewBtn: $('billingSavePreviewBtn'),
+  form: $("billingForm"),
+  formTitle: $("billingFormTitle"),
+  editId: $("billingEditId"),
+  billNo: $("billNo"),
+  billDate: $("billDate"),
+  customerName: $("billCustomerName"),
+  phone: $("billPhone"),
+  receivedDate: $("billReceivedDate"),
+  deliveryDate: $("billDeliveryDate"),
+  paymentType: $("billingPaymentType"),
+  paidAmountWrap: $("billingPaidAmountWrap"),
+  paymentHint: $("billingPaymentHint"),
+  advance: $("billAdvance"),
+  itemsBody: $("billingItemsBody"),
+  formTotal: $("billingFormTotal"),
+  formAdvance: $("billingFormAdvance"),
+  formBalance: $("billingFormBalance"),
+  clearBtn: $("billingClearBtn"),
+  saveBtn: $("billingSaveBtn"),
+  savePreviewBtn: $("billingSavePreviewBtn"),
 
-  statCount: $('billingStatCount'),
-  statCustomers: $('billingStatCustomers'),
+  statCount: $("billingStatCount"),
+  statCustomers: $("billingStatCustomers"),
 
-  customerSearch: $('billingCustomerSearch'),
-  customerProfiles: $('billingCustomerProfiles'),
-  customerEmpty: $('billingCustomerEmpty'),
-  customerEmptyTitle: $('billingCustomerEmptyTitle'),
-  customerEmptyHint: $('billingCustomerEmptyHint'),
-  customerPagination: $('billingCustomerPagination'),
+  customerSearch: $("billingCustomerSearch"),
+  customerProfiles: $("billingCustomerProfiles"),
+  customerEmpty: $("billingCustomerEmpty"),
+  customerEmptyTitle: $("billingCustomerEmptyTitle"),
+  customerEmptyHint: $("billingCustomerEmptyHint"),
+  customerPagination: $("billingCustomerPagination"),
 
-  customerModal: $('billingCustomerModal'),
-  customerModalAvatar: $('billingCustomerModalAvatar'),
-  customerModalName: $('billingCustomerModalName'),
-  customerModalPhone: $('billingCustomerModalPhone'),
-  customerModalBillCount: $('billingCustomerModalBillCount'),
-  customerModalTotal: $('billingCustomerModalTotal'),
-  customerModalPaid: $('billingCustomerModalPaid'),
-  customerModalBalance: $('billingCustomerModalBalance'),
-  customerModalRange: $('billingCustomerModalRange'),
-  customerModalBills: $('billingCustomerModalBills'),
-  customerHistoryPagination: $('billingCustomerHistoryPagination'),
+  customerModal: $("billingCustomerModal"),
+  customerModalAvatar: $("billingCustomerModalAvatar"),
+  customerModalName: $("billingCustomerModalName"),
+  customerModalPhone: $("billingCustomerModalPhone"),
+  customerModalBillCount: $("billingCustomerModalBillCount"),
+  customerModalTotal: $("billingCustomerModalTotal"),
+  customerModalPaid: $("billingCustomerModalPaid"),
+  customerModalBalance: $("billingCustomerModalBalance"),
+  customerModalRange: $("billingCustomerModalRange"),
+  customerModalBills: $("billingCustomerModalBills"),
+  customerHistoryPagination: $("billingCustomerHistoryPagination"),
 
-  search: $('billingSearch'),
-  savedWrap: $('billingSavedWrap'),
-  savedCards: $('billingSavedCards'),
-  savedBody: $('billingSavedBody'),
-  empty: $('billingEmpty'),
-  savedPagination: $('billingSavedPagination'),
+  search: $("billingSearch"),
+  savedWrap: $("billingSavedWrap"),
+  savedCards: $("billingSavedCards"),
+  savedBody: $("billingSavedBody"),
+  empty: $("billingEmpty"),
+  savedPagination: $("billingSavedPagination"),
 
-  previewModal: $('billingPreviewModal'),
-  previewEditBtn: $('billingPreviewEditBtn'),
-  printBtn: $('billingPrintBtn'),
-  pdfBtn: $('billingPdfBtn'),
-  whatsappBtn: $('billingWhatsAppBtn'),
-  paper: $('billingPaper'),
-  paperStage: $('billingPaperStage'),
-  previewScroll: $('billingPreviewScroll'),
-  previewItems: $('billingPreviewItems'),
-  previewCustomer: $('previewCustomer'),
-  previewPhone: $('previewPhone'),
-  previewBillNo: $('previewBillNo'),
-  previewBillDate: $('previewBillDate'),
-  previewReceivedDate: $('previewReceivedDate'),
-  previewDeliveryDate: $('previewDeliveryDate'),
-  previewTotal: $('previewTotal'),
-  previewAdvance: $('previewAdvance'),
-  previewBalance: $('previewBalance'),
-  previewPaymentStatus: $('previewPaymentStatus'),
-  paidSeal: $('billingPaidSeal'),
+  previewModal: $("billingPreviewModal"),
+  previewEditBtn: $("billingPreviewEditBtn"),
+  printBtn: $("billingPrintBtn"),
+  pdfBtn: $("billingPdfBtn"),
+  whatsappBtn: $("billingWhatsAppBtn"),
+  paper: $("billingPaper"),
+  paperStage: $("billingPaperStage"),
+  previewScroll: $("billingPreviewScroll"),
+  previewItems: $("billingPreviewItems"),
+  previewCustomer: $("previewCustomer"),
+  previewPhone: $("previewPhone"),
+  previewBillNo: $("previewBillNo"),
+  previewBillDate: $("previewBillDate"),
+  previewReceivedDate: $("previewReceivedDate"),
+  previewDeliveryDate: $("previewDeliveryDate"),
+  previewTotal: $("previewTotal"),
+  previewAdvance: $("previewAdvance"),
+  previewBalance: $("previewBalance"),
+  previewPaymentStatus: $("previewPaymentStatus"),
+  paidSeal: $("billingPaidSeal"),
 
-  itemSelect: $('billingItemSelect'),
-  selectedItemsSummary: $('billingSelectedItemsSummary'),
+  itemSelect: $("billingItemSelect"),
+  selectedItemsSummary: $("billingSelectedItemsSummary"),
 };
 
-const compactBillingQuery = window.matchMedia('(max-width: 1023px)');
+const compactBillingQuery = window.matchMedia("(max-width: 1023px)");
 
 function todayISO() {
   const now = new Date();
@@ -127,25 +147,25 @@ function todayISO() {
 }
 
 function formatDate(iso) {
-  if (!iso) return '—';
-  const [year, month, day] = iso.split('-');
+  if (!iso) return "—";
+  const [year, month, day] = iso.split("-");
   return year && month && day ? `${day}/${month}/${year}` : iso;
 }
 
 function formatMoney(value) {
-  return Number(value || 0).toLocaleString('en-LK', {
+  return Number(value || 0).toLocaleString("en-LK", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
 function getWhatsAppNumber(phone) {
-  let digits = String(phone || '').replace(/\D/g, '');
-  if (digits.startsWith('00')) digits = digits.slice(2);
+  let digits = String(phone || "").replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
   // Convert commonly entered Sri Lankan local mobile numbers (07X XXX XXXX)
   // to WhatsApp's required international format.
   if (/^0?7\d{8}$/.test(digits)) {
-    digits = `94${digits.replace(/^0/, '')}`;
+    digits = `94${digits.replace(/^0/, "")}`;
   }
   return digits;
 }
@@ -155,37 +175,47 @@ function shareBillOnWhatsApp() {
 
   const number = getWhatsAppNumber(currentPreviewBill.phone);
   if (!number) {
-    showToast(t('toastWhatsAppPhoneMissing'), 'error');
+    showToast(t("toastWhatsAppPhoneMissing"), "error");
     return;
   }
 
-  const message = t('shareBillWhatsAppText', {
-    name: currentPreviewBill.customerName || '',
-    number: currentPreviewBill.billNo || '',
+  const message = t("shareBillWhatsAppText", {
+    name: currentPreviewBill.customerName || "",
+    number: currentPreviewBill.billNo || "",
   });
-  window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+  window.open(
+    `https://wa.me/${number}?text=${encodeURIComponent(message)}`,
+    "_blank",
+    "noopener",
+  );
 }
 
 function getLocaleSafe() {
-  return typeof getLocale === 'function' ? getLocale() : 'en';
+  return typeof getLocale === "function" ? getLocale() : "en";
 }
 
 function translateItem(item) {
-  return getLocaleSafe() === 'si'
-    ? (item.nameSi || BILL_ITEMS.find((entry) => entry.key === item.key)?.si || item.nameEn || '')
-    : (item.nameEn || BILL_ITEMS.find((entry) => entry.key === item.key)?.en || item.nameSi || '');
+  return getLocaleSafe() === "si"
+    ? item.nameSi ||
+        BILL_ITEMS.find((entry) => entry.key === item.key)?.si ||
+        item.nameEn ||
+        ""
+    : item.nameEn ||
+        BILL_ITEMS.find((entry) => entry.key === item.key)?.en ||
+        item.nameSi ||
+        "";
 }
 
-function showToast(message, type = 'success') {
-  const container = $('toastContainer');
+function showToast(message, type = "success") {
+  const container = $("toastContainer");
   if (!container || !message) return;
 
-  container.innerHTML = '';
-  const toast = document.createElement('div');
+  container.innerHTML = "";
+  const toast = document.createElement("div");
   const tones = {
-    success: 'bg-emerald-600 border-emerald-500',
-    error: 'bg-red-600 border-red-500',
-    info: 'bg-brand-600 border-brand-500',
+    success: "bg-emerald-600 border-emerald-500",
+    error: "bg-red-600 border-red-500",
+    info: "bg-brand-600 border-brand-500",
   };
 
   toast.className = `toast-item pointer-events-auto rounded-lg border px-3 py-2 text-xs sm:text-sm font-medium text-white shadow-lg ${tones[type] || tones.info}`;
@@ -193,7 +223,7 @@ function showToast(message, type = 'success') {
   container.appendChild(toast);
 
   window.setTimeout(() => {
-    toast.classList.add('opacity-0', 'transition', 'duration-200');
+    toast.classList.add("opacity-0", "transition", "duration-200");
     window.setTimeout(() => toast.remove(), 200);
   }, 2200);
 }
@@ -203,41 +233,43 @@ function setSyncState(state) {
   if (!els.syncStatus) return;
 
   const labels = {
-    loading: t('syncLoading'),
-    saving: t('syncSaving'),
-    saved: t('syncSaved'),
-    error: t('syncError'),
+    loading: t("syncLoading"),
+    saving: t("syncSaving"),
+    saved: t("syncSaved"),
+    error: t("syncError"),
   };
 
-  els.syncStatus.textContent = labels[state] || '';
+  els.syncStatus.textContent = labels[state] || "";
 }
 
 function hideLoading() {
-  els.loading?.classList.add('hidden');
+  els.loading?.classList.add("hidden");
 }
 
 function createItemRows() {
-  if (els.itemsBody) els.itemsBody.innerHTML = '';
+  if (els.itemsBody) els.itemsBody.innerHTML = "";
   populateBillingItemSelect();
   renderSelectedBillingItems();
 }
 
 function getBillingItemRows() {
-  return els.itemsBody ? [...els.itemsBody.querySelectorAll('tr.billing-entry-row')] : [];
+  return els.itemsBody
+    ? [...els.itemsBody.querySelectorAll("tr.billing-entry-row")]
+    : [];
 }
 
 function billingRowIsActive(row) {
-  const qty = Number(row.querySelector('.billing-qty')?.value || 0);
-  const price = Number(row.querySelector('.billing-price')?.value || 0);
+  const qty = Number(row.querySelector(".billing-qty")?.value || 0);
+  const price = Number(row.querySelector(".billing-price")?.value || 0);
   return qty > 0 || price > 0;
 }
 
 function getBillingRowLabel(row) {
-  const customName = row.querySelector('.billing-custom-name')?.value?.trim();
+  const customName = row.querySelector(".billing-custom-name")?.value?.trim();
   if (customName) return customName;
-  const key = row.dataset.itemKey || '';
+  const key = row.dataset.itemKey || "";
   const def = BILL_ITEMS.find((item) => item.key === key);
-  return def ? (getLocaleSafe() === 'si' ? def.si : def.en) : key;
+  return def ? (getLocaleSafe() === "si" ? def.si : def.en) : key;
 }
 
 function createBillingRowId() {
@@ -248,20 +280,20 @@ function createBillingRowId() {
 function populateBillingItemSelect() {
   if (!els.itemSelect) return;
 
-  els.itemSelect.innerHTML = '';
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = t('billingSelectItemPlaceholder');
+  els.itemSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = t("billingSelectItemPlaceholder");
   els.itemSelect.appendChild(placeholder);
 
   BILL_ITEMS.forEach((item) => {
-    const option = document.createElement('option');
+    const option = document.createElement("option");
     option.value = item.key;
-    option.textContent = getLocaleSafe() === 'si' ? item.si : item.en;
+    option.textContent = getLocaleSafe() === "si" ? item.si : item.en;
     els.itemSelect.appendChild(option);
   });
 
-  els.itemSelect.value = '';
+  els.itemSelect.value = "";
 }
 
 function makeBillingItemRow(key, data = {}) {
@@ -269,64 +301,78 @@ function makeBillingItemRow(key, data = {}) {
     key,
     en: data.nameEn || key,
     si: data.nameSi || data.nameEn || key,
-    custom: key === 'other',
+    custom: key === "other",
   };
   const rowId = createBillingRowId();
   const customName = itemDef.custom
-    ? String(data.nameEn && data.nameEn !== itemDef.en ? data.nameEn : data.nameSi && data.nameSi !== itemDef.si ? data.nameSi : '')
-    : '';
-  const qty = Number(data.qty) > 0 ? Number(data.qty) : '';
-  const unitPrice = Number(data.unitPrice) > 0 ? Number(data.unitPrice) : '';
+    ? String(
+        data.nameEn && data.nameEn !== itemDef.en
+          ? data.nameEn
+          : data.nameSi && data.nameSi !== itemDef.si
+            ? data.nameSi
+            : "",
+      )
+    : "";
+  const qty = Number(data.qty) > 0 ? Number(data.qty) : "";
+  const unitPrice = Number(data.unitPrice) > 0 ? Number(data.unitPrice) : "";
 
-  const row = document.createElement('tr');
+  const row = document.createElement("tr");
   row.dataset.itemKey = itemDef.key;
   row.dataset.rowId = rowId;
-  row.className = 'billing-entry-row billing-added-row';
+  row.className = "billing-entry-row billing-added-row";
   row.innerHTML = `
     <td class="billing-item-index px-3 py-2 text-slate-500"></td>
     <td class="billing-item-description px-3 py-2 font-medium text-slate-800">
-      ${itemDef.custom
-        ? `<label class="billing-mobile-field-label billing-custom-label">${escapeHtml(t('billingOtherItemName'))}</label>
+      ${
+        itemDef.custom
+          ? `<label class="billing-mobile-field-label billing-custom-label">${escapeHtml(t("billingOtherItemName"))}</label>
            <input type="text" class="billing-custom-name w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  placeholder="${escapeHtml(t('billingOtherItemPlaceholder'))}" aria-label="${escapeHtml(t('billingOtherItemName'))}" value="${escapeHtml(customName)}" />`
-        : `<span class="billing-item-name">${escapeHtml(getLocaleSafe() === 'si' ? itemDef.si : itemDef.en)}</span>`}
+                  placeholder="${escapeHtml(t("billingOtherItemPlaceholder"))}" aria-label="${escapeHtml(t("billingOtherItemName"))}" value="${escapeHtml(customName)}" />`
+          : `<span class="billing-item-name">${escapeHtml(getLocaleSafe() === "si" ? itemDef.si : itemDef.en)}</span>`
+      }
     </td>
     <td class="billing-entry-field billing-qty-cell px-3 py-2">
-      <span class="billing-mobile-field-label">${escapeHtml(t('billingQty'))}</span>
+      <span class="billing-mobile-field-label">${escapeHtml(t("billingQty"))}</span>
       <input type="number" min="0" step="1" value="${escapeHtml(String(qty))}" placeholder="0"
              class="billing-qty w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
     </td>
     <td class="billing-entry-field billing-price-cell px-3 py-2">
-      <span class="billing-mobile-field-label">${escapeHtml(t('billingUnitPrice'))}</span>
+      <span class="billing-mobile-field-label">${escapeHtml(t("billingUnitPrice"))}</span>
       <input type="number" min="0" step="0.01" value="${escapeHtml(String(unitPrice))}" placeholder="0.00"
              class="billing-price w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
     </td>
     <td class="billing-entry-field billing-amount-cell px-3 py-2 text-right font-semibold text-slate-800">
-      <span class="billing-mobile-field-label">${escapeHtml(t('billingAmount'))}</span>
+      <span class="billing-mobile-field-label">${escapeHtml(t("billingAmount"))}</span>
       <span class="billing-row-amount">0.00</span>
     </td>
     <td class="billing-item-action-cell px-3 py-2 text-right">
-      <button type="button" class="billing-remove-item-btn" data-remove-item="${escapeHtml(rowId)}" aria-label="${escapeHtml(t('billingRemoveItem'))}" title="${escapeHtml(t('billingRemoveItem'))}">
-        <span aria-hidden="true">×</span><span class="billing-remove-item-text">${escapeHtml(t('billingRemoveItem'))}</span>
+      <button type="button" class="billing-remove-item-btn" data-remove-item="${escapeHtml(rowId)}" aria-label="${escapeHtml(t("billingRemoveItem"))}" title="${escapeHtml(t("billingRemoveItem"))}">
+        <span aria-hidden="true">×</span><span class="billing-remove-item-text">${escapeHtml(t("billingRemoveItem"))}</span>
       </button>
     </td>`;
 
-  row.querySelectorAll('input').forEach((input) => input.addEventListener('input', updateFormTotals));
+  row
+    .querySelectorAll("input")
+    .forEach((input) => input.addEventListener("input", updateFormTotals));
   return row;
 }
 
 function reindexBillingRows() {
   getBillingItemRows().forEach((row, index) => {
-    const indexCell = row.querySelector('.billing-item-index');
+    const indexCell = row.querySelector(".billing-item-index");
     if (indexCell) indexCell.textContent = String(index + 1);
   });
 }
 
 function focusBillingRow(rowId) {
-  const row = getBillingItemRows().find((entry) => entry.dataset.rowId === rowId);
+  const row = getBillingItemRows().find(
+    (entry) => entry.dataset.rowId === rowId,
+  );
   if (!row) return;
-  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  const target = row.querySelector('.billing-custom-name') || row.querySelector('.billing-qty');
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+  const target =
+    row.querySelector(".billing-custom-name") ||
+    row.querySelector(".billing-qty");
   window.setTimeout(() => target?.focus({ preventScroll: true }), 180);
 }
 
@@ -341,7 +387,9 @@ function addBillingItem(key, data = {}, focus = true) {
 }
 
 function removeBillingItem(rowId) {
-  const row = getBillingItemRows().find((entry) => entry.dataset.rowId === rowId);
+  const row = getBillingItemRows().find(
+    (entry) => entry.dataset.rowId === rowId,
+  );
   if (!row) return;
   row.remove();
   reindexBillingRows();
@@ -352,17 +400,18 @@ function renderSelectedBillingItems() {
   if (!els.selectedItemsSummary) return;
   const rows = getBillingItemRows();
   if (!rows.length) {
-    els.selectedItemsSummary.innerHTML = `<span class="billing-selected-empty">${escapeHtml(t('billingNoSelectedItems'))}</span>`;
+    els.selectedItemsSummary.innerHTML = `<span class="billing-selected-empty">${escapeHtml(t("billingNoSelectedItems"))}</span>`;
     return;
   }
 
-  els.selectedItemsSummary.innerHTML = rows.map((row, index) => {
-    const rowId = row.dataset.rowId || '';
-    const name = getBillingRowLabel(row) || t('billingOtherItemName');
-    const qty = Number(row.querySelector('.billing-qty')?.value || 0);
-    const price = Number(row.querySelector('.billing-price')?.value || 0);
-    const amount = qty * price;
-    return `
+  els.selectedItemsSummary.innerHTML = rows
+    .map((row, index) => {
+      const rowId = row.dataset.rowId || "";
+      const name = getBillingRowLabel(row) || t("billingOtherItemName");
+      const qty = Number(row.querySelector(".billing-qty")?.value || 0);
+      const price = Number(row.querySelector(".billing-price")?.value || 0);
+      const amount = qty * price;
+      return `
       <span class="billing-selected-item-chip" data-row-chip="${escapeHtml(rowId)}">
         <button type="button" class="billing-chip-main" data-focus-row="${escapeHtml(rowId)}" title="${escapeHtml(name)}">
           <span class="billing-chip-order">${index + 1}</span>
@@ -370,9 +419,10 @@ function renderSelectedBillingItems() {
           <span>× ${escapeHtml(String(qty || 0))}</span>
           <span>Rs. ${formatMoney(amount)}</span>
         </button>
-        <button type="button" class="billing-chip-remove" data-remove-row="${escapeHtml(rowId)}" aria-label="${escapeHtml(t('billingRemoveItem'))}" title="${escapeHtml(t('billingRemoveItem'))}">×</button>
+        <button type="button" class="billing-chip-remove" data-remove-row="${escapeHtml(rowId)}" aria-label="${escapeHtml(t("billingRemoveItem"))}" title="${escapeHtml(t("billingRemoveItem"))}">×</button>
       </span>`;
-  }).join('');
+    })
+    .join("");
 }
 
 function refreshBillingItemPicker() {
@@ -383,20 +433,21 @@ function refreshBillingItemPicker() {
 
 function getFormItems() {
   return getBillingItemRows().map((row) => {
-    const key = row.dataset.itemKey || '';
+    const key = row.dataset.itemKey || "";
     const itemDef = BILL_ITEMS.find((item) => item.key === key);
-    const qtyRaw = row.querySelector('.billing-qty')?.value.trim() || '';
-    const priceRaw = row.querySelector('.billing-price')?.value.trim() || '';
-    const customName = row.querySelector('.billing-custom-name')?.value.trim() || '';
-    const qty = qtyRaw === '' ? 0 : Math.max(0, Number(qtyRaw) || 0);
-    const unitPrice = priceRaw === '' ? 0 : Math.max(0, Number(priceRaw) || 0);
+    const qtyRaw = row.querySelector(".billing-qty")?.value.trim() || "";
+    const priceRaw = row.querySelector(".billing-price")?.value.trim() || "";
+    const customName =
+      row.querySelector(".billing-custom-name")?.value.trim() || "";
+    const qty = qtyRaw === "" ? 0 : Math.max(0, Number(qtyRaw) || 0);
+    const unitPrice = priceRaw === "" ? 0 : Math.max(0, Number(priceRaw) || 0);
     const fallbackEn = itemDef?.en || key;
     const fallbackSi = itemDef?.si || key;
 
     return {
       key,
-      nameEn: itemDef?.custom ? (customName || fallbackEn) : fallbackEn,
-      nameSi: itemDef?.custom ? (customName || fallbackSi) : fallbackSi,
+      nameEn: itemDef?.custom ? customName || fallbackEn : fallbackEn,
+      nameSi: itemDef?.custom ? customName || fallbackSi : fallbackSi,
       qty,
       unitPrice,
       amount: qty * unitPrice,
@@ -404,15 +455,18 @@ function getFormItems() {
   });
 }
 
-function getTotals(items, paymentType = 'unpaid', paidValue = '') {
-  const total = (items || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-  const paidRaw = String(paidValue ?? '').trim();
+function getTotals(items, paymentType = "unpaid", paidValue = "") {
+  const total = (items || []).reduce(
+    (sum, item) => sum + (Number(item.amount) || 0),
+    0,
+  );
+  const paidRaw = String(paidValue ?? "").trim();
   let paid = 0;
 
-  if (paymentType === 'full') {
+  if (paymentType === "full") {
     paid = total;
-  } else if (paymentType === 'advance') {
-    paid = paidRaw === '' ? 0 : Math.max(0, Number(paidRaw) || 0);
+  } else if (paymentType === "advance") {
+    paid = paidRaw === "" ? 0 : Math.max(0, Number(paidRaw) || 0);
   }
 
   const balance = Math.max(0, total - paid);
@@ -420,31 +474,48 @@ function getTotals(items, paymentType = 'unpaid', paidValue = '') {
 }
 
 function getBillPaymentType(bill) {
-  if (bill?.paymentType === 'full' || bill?.paymentType === 'advance' || bill?.paymentType === 'unpaid') {
+  if (
+    bill?.paymentType === "full" ||
+    bill?.paymentType === "advance" ||
+    bill?.paymentType === "unpaid"
+  ) {
     return bill.paymentType;
   }
 
   const total = Number(bill?.totalAmount) || 0;
   const paid = Number(bill?.paidAmount ?? bill?.advanceAmount) || 0;
-  if (total > 0 && paid >= total) return 'full';
-  if (paid > 0) return 'advance';
-  return 'unpaid';
+  if (total > 0 && paid >= total) return "full";
+  if (paid > 0) return "advance";
+  return "unpaid";
 }
 
 function normalizePhoneKey(value) {
-  let digits = String(value || '').replace(/\D/g, '');
-  if (digits.startsWith('0094')) digits = `0${digits.slice(4)}`;
-  else if (digits.startsWith('94') && digits.length >= 11) digits = `0${digits.slice(2)}`;
+  let digits = String(value || "").replace(/\D/g, "");
+  if (digits.startsWith("0094")) digits = `0${digits.slice(4)}`;
+  else if (digits.startsWith("94") && digits.length >= 11)
+    digits = `0${digits.slice(2)}`;
   return digits;
 }
 
 function normalizeBill(bill) {
   const total = Number(bill?.totalAmount) || 0;
-  const legacyPaid = Math.max(0, Number(bill?.paidAmount ?? bill?.advanceAmount) || 0);
-  const paymentType = getBillPaymentType({ ...bill, totalAmount: total, paidAmount: legacyPaid });
-  const paid = paymentType === 'full' ? total : paymentType === 'advance' ? Math.min(legacyPaid, total) : 0;
+  const legacyPaid = Math.max(
+    0,
+    Number(bill?.paidAmount ?? bill?.advanceAmount) || 0,
+  );
+  const paymentType = getBillPaymentType({
+    ...bill,
+    totalAmount: total,
+    paidAmount: legacyPaid,
+  });
+  const paid =
+    paymentType === "full"
+      ? total
+      : paymentType === "advance"
+        ? Math.min(legacyPaid, total)
+        : 0;
 
-  const customerId = normalizePhoneKey(bill?.phone || bill?.customerId || '');
+  const customerId = normalizePhoneKey(bill?.phone || bill?.customerId || "");
 
   return {
     ...bill,
@@ -457,61 +528,75 @@ function normalizeBill(bill) {
 }
 
 function getPaymentStatusLabel(billOrType) {
-  const type = typeof billOrType === 'string' ? billOrType : getBillPaymentType(billOrType);
-  if (type === 'full') return t('billingPaymentFull');
-  if (type === 'advance') return t('billingPaymentAdvance');
-  return t('billingPaymentUnpaid');
+  const type =
+    typeof billOrType === "string"
+      ? billOrType
+      : getBillPaymentType(billOrType);
+  if (type === "full") return t("billingPaymentFull");
+  if (type === "advance") return t("billingPaymentAdvance");
+  return t("billingPaymentUnpaid");
 }
 
 function updatePaymentControls() {
   if (!els.paymentType || !els.advance || !els.paidAmountWrap) return;
-  const type = els.paymentType.value || 'unpaid';
+  const type = els.paymentType.value || "unpaid";
 
-  els.paidAmountWrap.classList.toggle('hidden', type === 'unpaid');
-  els.advance.disabled = type !== 'advance';
-  els.advance.required = type === 'advance';
+  els.paidAmountWrap.classList.toggle("hidden", type === "unpaid");
+  els.advance.disabled = type !== "advance";
+  els.advance.required = type === "advance";
 
-  if (type === 'unpaid') {
-    els.advance.value = '';
-    if (els.paymentHint) els.paymentHint.textContent = t('billingPaymentUnpaidHint');
-  } else if (type === 'full') {
-    if (els.paymentHint) els.paymentHint.textContent = t('billingPaymentFullHint');
+  if (type === "unpaid") {
+    els.advance.value = "";
+    if (els.paymentHint)
+      els.paymentHint.textContent = t("billingPaymentUnpaidHint");
+  } else if (type === "full") {
+    if (els.paymentHint)
+      els.paymentHint.textContent = t("billingPaymentFullHint");
   } else if (els.paymentHint) {
-    els.paymentHint.textContent = t('billingPaymentAdvanceHint');
+    els.paymentHint.textContent = t("billingPaymentAdvanceHint");
   }
 }
 
 function updateFormTotals() {
   const items = getFormItems();
 
-  [...els.itemsBody.querySelectorAll('tr')].forEach((row, index) => {
-    row.querySelector('.billing-row-amount').textContent = formatMoney(items[index].amount);
+  [...els.itemsBody.querySelectorAll("tr")].forEach((row, index) => {
+    row.querySelector(".billing-row-amount").textContent = formatMoney(
+      items[index].amount,
+    );
   });
 
-  const paymentType = els.paymentType?.value || 'unpaid';
+  const paymentType = els.paymentType?.value || "unpaid";
   const totals = getTotals(items, paymentType, els.advance.value);
 
-  if (paymentType === 'full') {
-    els.advance.value = totals.total > 0 ? totals.total.toFixed(2) : '';
+  if (paymentType === "full") {
+    els.advance.value = totals.total > 0 ? totals.total.toFixed(2) : "";
   }
 
   els.formTotal.textContent = `Rs. ${formatMoney(totals.total)}`;
   els.formAdvance.textContent = `Rs. ${formatMoney(totals.paid)}`;
   els.formBalance.textContent = `Rs. ${formatMoney(totals.balance)}`;
 
-  els.formBalance.parentElement?.classList.toggle('ring-2', totals.balance > 0);
-  els.formBalance.parentElement?.classList.toggle('ring-violet-200', totals.balance > 0);
+  els.formBalance.parentElement?.classList.toggle("ring-2", totals.balance > 0);
+  els.formBalance.parentElement?.classList.toggle(
+    "ring-violet-200",
+    totals.balance > 0,
+  );
   renderSelectedBillingItems();
 }
 
 function collectFormBill() {
-  const items = getFormItems().filter((item) => item.qty > 0 || item.unitPrice > 0);
-  const paymentType = els.paymentType?.value || 'unpaid';
+  const items = getFormItems().filter(
+    (item) => item.qty > 0 || item.unitPrice > 0,
+  );
+  const paymentType = els.paymentType?.value || "unpaid";
   const totals = getTotals(items, paymentType, els.advance.value);
   const existing = bills.find((bill) => bill.id === currentBillId);
 
   return {
-    id: currentBillId || `bill-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id:
+      currentBillId ||
+      `bill-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     billNo: els.billNo.value.trim(),
     billDate: els.billDate.value,
     customerName: els.customerName.value.trim(),
@@ -533,58 +618,81 @@ function collectFormBill() {
 function validateBill(bill) {
   if (!bill.billNo) {
     els.billNo.focus();
-    showToast(t('billingErrorBillNo'), 'error');
+    showToast(t("billingErrorBillNo"), "error");
     return false;
   }
 
   if (!bill.customerName) {
     els.customerName.focus();
-    showToast(t('billingErrorCustomer'), 'error');
+    showToast(t("billingErrorCustomer"), "error");
     return false;
   }
 
-  if (!bill.phone || !bill.customerId) {
+  if (bill.phone && !isValidPhoneNumber(bill.phone)) {
     els.phone.focus();
-    showToast(t('billingErrorPhone'), 'error');
+    showToast(t("billingErrorPhoneInvalid"), "error");
     return false;
   }
 
   if (!bill.items.some((item) => item.qty > 0)) {
-    showToast(t('billingErrorItem'), 'error');
+    showToast(t("billingErrorItem"), "error");
     return false;
   }
 
-  const invalidOtherRow = getBillingItemRows().find((row) =>
-    row.dataset.itemKey === 'other'
-    && billingRowIsActive(row)
-    && !row.querySelector('.billing-custom-name')?.value.trim()
+  const invalidOtherRow = getBillingItemRows().find(
+    (row) =>
+      row.dataset.itemKey === "other" &&
+      billingRowIsActive(row) &&
+      !row.querySelector(".billing-custom-name")?.value.trim(),
   );
   if (invalidOtherRow) {
-    invalidOtherRow.querySelector('.billing-custom-name')?.focus();
-    showToast(t('billingErrorOtherItem'), 'error');
+    invalidOtherRow.querySelector(".billing-custom-name")?.focus();
+    showToast(t("billingErrorOtherItem"), "error");
     return false;
   }
 
   if (bill.paidAmount > bill.totalAmount) {
     els.advance.focus();
-    showToast(t('billingErrorAdvance'), 'error');
+    showToast(t("billingErrorAdvance"), "error");
     return false;
   }
 
-  const duplicate = bills.find((item) => item.billNo.toLowerCase() === bill.billNo.toLowerCase() && item.id !== bill.id);
+  const duplicate = bills.find(
+    (item) =>
+      item.billNo.toLowerCase() === bill.billNo.toLowerCase() &&
+      item.id !== bill.id,
+  );
   if (duplicate) {
     els.billNo.focus();
-    showToast(t('billingErrorDuplicate', { number: bill.billNo }), 'error');
+    showToast(t("billingErrorDuplicate", { number: bill.billNo }), "error");
     return false;
   }
 
   return true;
 }
 
+function refreshBillingPhoneValidation() {
+  updatePhoneFieldState(
+    els.phone,
+    document.getElementById("billPhoneMessage"),
+    {
+      progress: (count) => t("phoneDigitsProgress", { count }),
+      valid: t("phoneDigitsValid"),
+      invalid: t("phoneDigitsInvalid"),
+    },
+  );
+}
+
 function updateSaveButtonLabels() {
   if (saveInProgress) return;
-  if (els.savePreviewBtn) els.savePreviewBtn.textContent = currentBillId ? t('billingUpdatePreview') : t('billingSavePreview');
-  if (els.saveBtn) els.saveBtn.textContent = currentBillId ? t('billingUpdate') : t('billingSave');
+  if (els.savePreviewBtn)
+    els.savePreviewBtn.textContent = currentBillId
+      ? t("billingUpdatePreview")
+      : t("billingSavePreview");
+  if (els.saveBtn)
+    els.saveBtn.textContent = currentBillId
+      ? t("billingUpdate")
+      : t("billingSave");
 }
 
 function setSaveButtonsLoading(active, openAfterSave = false) {
@@ -592,8 +700,8 @@ function setSaveButtonsLoading(active, openAfterSave = false) {
   const buttons = [els.saveBtn, els.savePreviewBtn].filter(Boolean);
   buttons.forEach((button) => {
     button.disabled = active;
-    button.classList.toggle('billing-button-disabled', active);
-    button.classList.remove('billing-button-loading');
+    button.classList.toggle("billing-button-disabled", active);
+    button.classList.remove("billing-button-loading");
   });
 
   if (!active) {
@@ -603,20 +711,20 @@ function setSaveButtonsLoading(active, openAfterSave = false) {
 
   const target = openAfterSave ? els.savePreviewBtn : els.saveBtn;
   if (!target) return;
-  const label = currentBillId ? t('billingUpdatingNow') : t('billingSavingNow');
-  target.classList.add('billing-button-loading');
+  const label = currentBillId ? t("billingUpdatingNow") : t("billingSavingNow");
+  target.classList.add("billing-button-loading");
   target.innerHTML = `<span class="billing-action-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
 }
 
 async function persistCurrentBills() {
-  setSyncState('saving');
+  setSyncState("saving");
   pendingWrites += 1;
   try {
     await persistBills(bills);
-    setSyncState('saved');
+    setSyncState("saved");
   } catch (error) {
     console.error(error);
-    setSyncState('error');
+    setSyncState("error");
     throw error;
   } finally {
     pendingWrites = Math.max(0, pendingWrites - 1);
@@ -639,35 +747,39 @@ async function saveBill(bill) {
       savedBillsPage = 1;
       customerPage = 1;
     }
-    showToast(t(isUpdate ? 'billingToastUpdated' : 'billingToastSaved'), 'success');
+    showToast(
+      t(isUpdate ? "billingToastUpdated" : "billingToastSaved"),
+      "success",
+    );
     renderAll();
     return true;
   } catch {
     bills = previousBills;
     renderAll();
-    showToast(t('toastSyncError'), 'error');
+    showToast(t("toastSyncError"), "error");
     return false;
   }
 }
 
 function resetForm() {
-  currentBillId = '';
-  els.editId.value = '';
+  currentBillId = "";
+  els.editId.value = "";
   els.form.reset();
+  refreshBillingPhoneValidation();
 
   // Manual Bill No. — intentionally blank.
-  els.billNo.value = '';
+  els.billNo.value = "";
   els.billDate.value = todayISO();
   els.receivedDate.value = todayISO();
-  els.deliveryDate.value = '';
-  if (els.paymentType) els.paymentType.value = 'unpaid';
-  els.advance.value = '';
+  els.deliveryDate.value = "";
+  if (els.paymentType) els.paymentType.value = "unpaid";
+  els.advance.value = "";
   updatePaymentControls();
 
-  if (els.itemsBody) els.itemsBody.innerHTML = '';
-  if (els.itemSelect) els.itemSelect.value = '';
+  if (els.itemsBody) els.itemsBody.innerHTML = "";
+  if (els.itemSelect) els.itemSelect.value = "";
 
-  els.formTitle.textContent = t('billingNewBill');
+  els.formTitle.textContent = t("billingNewBill");
   updateSaveButtonLabels();
   updatePaymentControls();
   updateFormTotals();
@@ -678,29 +790,32 @@ function fillForm(bill) {
   currentBillId = bill.id;
   els.editId.value = bill.id;
 
-  els.billNo.value = bill.billNo || '';
+  els.billNo.value = bill.billNo || "";
   els.billDate.value = bill.billDate || todayISO();
-  els.customerName.value = bill.customerName || '';
-  els.phone.value = bill.phone || '';
-  els.receivedDate.value = bill.receivedDate || '';
-  els.deliveryDate.value = bill.deliveryDate || '';
+  els.customerName.value = bill.customerName || "";
+  els.phone.value = bill.phone || "";
+  els.receivedDate.value = bill.receivedDate || "";
+  els.deliveryDate.value = bill.deliveryDate || "";
   const normalized = normalizeBill(bill);
   if (els.paymentType) els.paymentType.value = normalized.paymentType;
-  els.advance.value = normalized.paymentType === 'unpaid' ? '' : normalized.paidAmount;
+  els.advance.value =
+    normalized.paymentType === "unpaid" ? "" : normalized.paidAmount;
   updatePaymentControls();
 
-  if (els.itemsBody) els.itemsBody.innerHTML = '';
+  if (els.itemsBody) els.itemsBody.innerHTML = "";
   (bill.items || [])
     .filter((item) => Number(item?.qty) > 0 || Number(item?.unitPrice) > 0)
-    .forEach((item) => addBillingItem(item.key || 'other', item, false));
+    .forEach((item) => addBillingItem(item.key || "other", item, false));
   reindexBillingRows();
 
-  els.formTitle.textContent = t('billingEditBill', { number: bill.billNo });
+  els.formTitle.textContent = t("billingEditBill", { number: bill.billNo });
   updateSaveButtonLabels();
   updateFormTotals();
   refreshBillingItemPicker();
 
-  document.getElementById('billingFormSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document
+    .getElementById("billingFormSection")
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
   window.setTimeout(() => els.billNo.focus({ preventScroll: true }), 250);
 }
 
@@ -716,42 +831,50 @@ function getCustomerProfiles() {
     grouped.get(customerId).push(bill);
   });
 
-  return [...grouped.entries()].map(([customerId, customerBills]) => {
-    customerBills.sort((a, b) => {
-      const dateCompare = (b.billDate || '').localeCompare(a.billDate || '');
-      if (dateCompare !== 0) return dateCompare;
-      return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+  return [...grouped.entries()]
+    .map(([customerId, customerBills]) => {
+      customerBills.sort((a, b) => {
+        const dateCompare = (b.billDate || "").localeCompare(a.billDate || "");
+        if (dateCompare !== 0) return dateCompare;
+        return (b.updatedAt || "").localeCompare(a.updatedAt || "");
+      });
+
+      const latest = customerBills[0] || {};
+      const totals = customerBills.reduce(
+        (summary, bill) => {
+          summary.totalBilled += Number(bill.totalAmount) || 0;
+          summary.totalPaid += Number(bill.paidAmount) || 0;
+          summary.totalBalance += Number(bill.balanceAmount) || 0;
+          return summary;
+        },
+        { totalBilled: 0, totalPaid: 0, totalBalance: 0 },
+      );
+
+      return {
+        customerId,
+        customerName: latest.customerName || t("billingUnknownCustomer"),
+        phone: latest.phone || customerId,
+        latestBillDate: latest.billDate || "",
+        latestUpdatedAt: latest.updatedAt || latest.createdAt || "",
+        totalBilled: totals.totalBilled,
+        totalPaid: totals.totalPaid,
+        totalBalance: totals.totalBalance,
+        bills: customerBills,
+      };
+    })
+    .sort((a, b) => {
+      const activityCompare = (b.latestUpdatedAt || "").localeCompare(
+        a.latestUpdatedAt || "",
+      );
+      if (activityCompare !== 0) return activityCompare;
+      return (b.latestBillDate || "").localeCompare(a.latestBillDate || "");
     });
-
-    const latest = customerBills[0] || {};
-    const totals = customerBills.reduce((summary, bill) => {
-      summary.totalBilled += Number(bill.totalAmount) || 0;
-      summary.totalPaid += Number(bill.paidAmount) || 0;
-      summary.totalBalance += Number(bill.balanceAmount) || 0;
-      return summary;
-    }, { totalBilled: 0, totalPaid: 0, totalBalance: 0 });
-
-    return {
-      customerId,
-      customerName: latest.customerName || t('billingUnknownCustomer'),
-      phone: latest.phone || customerId,
-      latestBillDate: latest.billDate || '',
-      latestUpdatedAt: latest.updatedAt || latest.createdAt || '',
-      totalBilled: totals.totalBilled,
-      totalPaid: totals.totalPaid,
-      totalBalance: totals.totalBalance,
-      bills: customerBills,
-    };
-  }).sort((a, b) => {
-    const activityCompare = (b.latestUpdatedAt || '').localeCompare(a.latestUpdatedAt || '');
-    if (activityCompare !== 0) return activityCompare;
-    return (b.latestBillDate || '').localeCompare(a.latestBillDate || '');
-  });
 }
 
 function renderStats() {
   if (els.statCount) els.statCount.textContent = bills.length;
-  if (els.statCustomers) els.statCustomers.textContent = getCustomerProfiles().length;
+  if (els.statCustomers)
+    els.statCustomers.textContent = getCustomerProfiles().length;
 }
 
 function clampPage(page, totalItems, pageSize) {
@@ -760,13 +883,22 @@ function clampPage(page, totalItems, pageSize) {
 }
 
 function getPaginationTokens(currentPage, totalPages) {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+  if (totalPages <= 7)
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
 
-  const pages = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1]);
-  const sorted = [...pages].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+  const pages = new Set([
+    1,
+    totalPages,
+    currentPage,
+    currentPage - 1,
+    currentPage + 1,
+  ]);
+  const sorted = [...pages]
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
   const tokens = [];
   sorted.forEach((page, index) => {
-    if (index && page - sorted[index - 1] > 1) tokens.push('ellipsis');
+    if (index && page - sorted[index - 1] > 1) tokens.push("ellipsis");
     tokens.push(page);
   });
   return tokens;
@@ -778,27 +910,30 @@ function renderPagination(container, scope, totalItems, currentPage, pageSize) {
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const page = clampPage(currentPage, totalItems, pageSize);
   const shouldShow = totalItems > pageSize;
-  container.classList.toggle('hidden', !shouldShow);
+  container.classList.toggle("hidden", !shouldShow);
 
   if (!shouldShow) {
-    container.innerHTML = '';
+    container.innerHTML = "";
     return page;
   }
 
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, totalItems);
-  const buttons = getPaginationTokens(page, totalPages).map((token) => {
-    if (token === 'ellipsis') return '<span class="billing-pagination-ellipsis" aria-hidden="true">…</span>';
-    const active = token === page;
-    return `<button type="button" class="billing-page-btn${active ? ' is-active' : ''}" data-page-scope="${scope}" data-page="${token}" ${active ? 'aria-current="page"' : ''}>${token}</button>`;
-  }).join('');
+  const buttons = getPaginationTokens(page, totalPages)
+    .map((token) => {
+      if (token === "ellipsis")
+        return '<span class="billing-pagination-ellipsis" aria-hidden="true">…</span>';
+      const active = token === page;
+      return `<button type="button" class="billing-page-btn${active ? " is-active" : ""}" data-page-scope="${scope}" data-page="${token}" ${active ? 'aria-current="page"' : ""}>${token}</button>`;
+    })
+    .join("");
 
   container.innerHTML = `
-    <div class="billing-pagination-info">${escapeHtml(t('billingShowingRange', { from, to, total: totalItems }))}</div>
+    <div class="billing-pagination-info">${escapeHtml(t("billingShowingRange", { from, to, total: totalItems }))}</div>
     <div class="billing-pagination-controls">
-      <button type="button" class="billing-page-btn billing-page-nav" data-page-scope="${scope}" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>‹ <span>${escapeHtml(t('billingPrevious'))}</span></button>
+      <button type="button" class="billing-page-btn billing-page-nav" data-page-scope="${scope}" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>‹ <span>${escapeHtml(t("billingPrevious"))}</span></button>
       <div class="billing-page-numbers">${buttons}</div>
-      <button type="button" class="billing-page-btn billing-page-nav" data-page-scope="${scope}" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}><span>${escapeHtml(t('billingNext'))}</span> ›</button>
+      <button type="button" class="billing-page-btn billing-page-nav" data-page-scope="${scope}" data-page="${page + 1}" ${page >= totalPages ? "disabled" : ""}><span>${escapeHtml(t("billingNext"))}</span> ›</button>
     </div>`;
 
   return page;
@@ -811,8 +946,8 @@ function renderCustomerBillCard(rawBill) {
     <article class="billing-customer-bill-row">
       <div class="billing-customer-bill-head">
         <div>
-          <span class="billing-customer-bill-label">${escapeHtml(t('billingBillNo'))}</span>
-          <strong>${escapeHtml(bill.billNo || '—')}</strong>
+          <span class="billing-customer-bill-label">${escapeHtml(t("billingBillNo"))}</span>
+          <strong>${escapeHtml(bill.billNo || "—")}</strong>
         </div>
         <div class="billing-customer-bill-meta">
           <span>${escapeHtml(formatDate(bill.billDate))}</span>
@@ -820,16 +955,16 @@ function renderCustomerBillCard(rawBill) {
         </div>
       </div>
       <div class="billing-customer-bill-money">
-        <div><span>${escapeHtml(t('billingTotal'))}</span><strong>Rs. ${formatMoney(bill.totalAmount)}</strong></div>
-        <div><span>${escapeHtml(t('billingPaidShort'))}</span><strong>Rs. ${formatMoney(bill.paidAmount)}</strong></div>
-        <div class="${hasBalance ? 'billing-balance-due' : 'billing-balance-paid'}"><span>${escapeHtml(t('billingBalance'))}</span><strong>Rs. ${formatMoney(bill.balanceAmount)}</strong></div>
+        <div><span>${escapeHtml(t("billingTotal"))}</span><strong>Rs. ${formatMoney(bill.totalAmount)}</strong></div>
+        <div><span>${escapeHtml(t("billingPaidShort"))}</span><strong>Rs. ${formatMoney(bill.paidAmount)}</strong></div>
+        <div class="${hasBalance ? "billing-balance-due" : "billing-balance-paid"}"><span>${escapeHtml(t("billingBalance"))}</span><strong>Rs. ${formatMoney(bill.balanceAmount)}</strong></div>
       </div>
       <div class="billing-customer-bill-actions">
-        ${hasBalance ? `<button type="button" class="billing-customer-action billing-customer-action-pay" data-bill-action="collect-balance" data-id="${escapeHtml(bill.id)}">${escapeHtml(t('billingCollectBalance'))}</button>` : ''}
-        <button type="button" class="billing-customer-action" data-bill-action="preview" data-id="${escapeHtml(bill.id)}">${escapeHtml(t('billingPreview'))}</button>
-        <button type="button" class="billing-customer-action" data-bill-action="edit" data-id="${escapeHtml(bill.id)}">${escapeHtml(t('btnEdit'))}</button>
+        ${hasBalance ? `<button type="button" class="billing-customer-action billing-customer-action-pay" data-bill-action="collect-balance" data-id="${escapeHtml(bill.id)}">${escapeHtml(t("billingCollectBalance"))}</button>` : ""}
+        <button type="button" class="billing-customer-action" data-bill-action="preview" data-id="${escapeHtml(bill.id)}">${escapeHtml(t("billingPreview"))}</button>
+        <button type="button" class="billing-customer-action" data-bill-action="edit" data-id="${escapeHtml(bill.id)}">${escapeHtml(t("btnEdit"))}</button>
         <button type="button" class="billing-customer-action" data-bill-action="pdf" data-id="${escapeHtml(bill.id)}">PDF</button>
-        <button type="button" class="billing-customer-action billing-customer-action-delete" data-bill-action="delete" data-id="${escapeHtml(bill.id)}">${escapeHtml(t('btnDelete'))}</button>
+        <button type="button" class="billing-customer-action billing-customer-action-delete" data-bill-action="delete" data-id="${escapeHtml(bill.id)}">${escapeHtml(t("btnDelete"))}</button>
       </div>
     </article>`;
 }
@@ -838,64 +973,92 @@ function renderCustomerProfiles() {
   if (!els.customerProfiles || !els.customerEmpty) return;
 
   const profiles = getCustomerProfiles();
-  const query = (els.customerSearch?.value || '').trim().toLowerCase();
+  const query = (els.customerSearch?.value || "").trim().toLowerCase();
   const phoneQuery = normalizePhoneKey(query);
   const filtered = profiles.filter((profile) => {
     if (!query) return true;
-    return String(profile.customerName || '').toLowerCase().includes(query)
-      || String(profile.phone || '').toLowerCase().includes(query)
-      || String(profile.customerId || '').includes(phoneQuery || query);
+    return (
+      String(profile.customerName || "")
+        .toLowerCase()
+        .includes(query) ||
+      String(profile.phone || "")
+        .toLowerCase()
+        .includes(query) ||
+      String(profile.customerId || "").includes(phoneQuery || query)
+    );
   });
 
   const hasProfiles = filtered.length > 0;
-  els.customerProfiles.classList.toggle('hidden', !hasProfiles);
-  els.customerEmpty.classList.toggle('hidden', hasProfiles);
+  els.customerProfiles.classList.toggle("hidden", !hasProfiles);
+  els.customerEmpty.classList.toggle("hidden", hasProfiles);
 
   if (!hasProfiles) {
-    if (els.customerEmptyTitle) els.customerEmptyTitle.textContent = query ? t('billingCustomerNoMatch') : t('billingCustomerEmpty');
-    if (els.customerEmptyHint) els.customerEmptyHint.textContent = query ? t('billingCustomerNoMatchHint') : t('billingCustomerEmptyHint');
-    els.customerProfiles.innerHTML = '';
+    if (els.customerEmptyTitle)
+      els.customerEmptyTitle.textContent = query
+        ? t("billingCustomerNoMatch")
+        : t("billingCustomerEmpty");
+    if (els.customerEmptyHint)
+      els.customerEmptyHint.textContent = query
+        ? t("billingCustomerNoMatchHint")
+        : t("billingCustomerEmptyHint");
+    els.customerProfiles.innerHTML = "";
     if (els.customerPagination) {
-      els.customerPagination.innerHTML = '';
-      els.customerPagination.classList.add('hidden');
+      els.customerPagination.innerHTML = "";
+      els.customerPagination.classList.add("hidden");
     }
     customerPage = 1;
     return;
   }
 
-  customerPage = renderPagination(els.customerPagination, 'customers', filtered.length, customerPage, CUSTOMER_PAGE_SIZE);
+  customerPage = renderPagination(
+    els.customerPagination,
+    "customers",
+    filtered.length,
+    customerPage,
+    CUSTOMER_PAGE_SIZE,
+  );
   const start = (customerPage - 1) * CUSTOMER_PAGE_SIZE;
   const pageProfiles = filtered.slice(start, start + CUSTOMER_PAGE_SIZE);
 
-  els.customerProfiles.innerHTML = pageProfiles.map((profile) => {
-    const billCount = profile.bills.length;
-    const billWord = billCount === 1 ? t('billingOneBill') : t('billingManyBills', { count: billCount });
-    const initial = (profile.customerName || '?').trim().charAt(0).toUpperCase() || '?';
+  els.customerProfiles.innerHTML = pageProfiles
+    .map((profile) => {
+      const billCount = profile.bills.length;
+      const billWord =
+        billCount === 1
+          ? t("billingOneBill")
+          : t("billingManyBills", { count: billCount });
+      const initial =
+        (profile.customerName || "?").trim().charAt(0).toUpperCase() || "?";
 
-    return `
+      return `
       <article class="billing-customer-profile">
         <div class="billing-customer-profile-summary">
           <div class="billing-customer-avatar" aria-hidden="true">${escapeHtml(initial)}</div>
           <div class="billing-customer-main">
             <strong class="billing-customer-name">${escapeHtml(profile.customerName)}</strong>
-            <span class="billing-customer-id-label">${escapeHtml(t('billingCustomerId'))}</span>
+            <span class="billing-customer-id-label">${escapeHtml(t("billingCustomerId"))}</span>
             <div class="billing-customer-phone-line">
               <span class="billing-customer-phone">${escapeHtml(profile.phone || profile.customerId)}</span>
-              <span class="billing-customer-inline-total"><span>${escapeHtml(t('billingAllBillsTotal'))}</span><strong>Rs. ${formatMoney(profile.totalBilled)}</strong></span>
+              <span class="billing-customer-inline-total"><span>${escapeHtml(t("billingAllBillsTotal"))}</span><strong>Rs. ${formatMoney(profile.totalBilled)}</strong></span>
             </div>
           </div>
           <div class="billing-customer-summary-meta">
             <span class="billing-customer-bill-count">${escapeHtml(billWord)}</span>
-            <span class="billing-customer-last-date">${escapeHtml(t('billingLastBill'))}: ${escapeHtml(formatDate(profile.latestBillDate))}</span>
-            <button type="button" class="billing-customer-view-btn" data-customer-action="open-profile" data-customer-id="${escapeHtml(profile.customerId)}">${escapeHtml(t('billingViewBills'))} →</button>
+            <span class="billing-customer-last-date">${escapeHtml(t("billingLastBill"))}: ${escapeHtml(formatDate(profile.latestBillDate))}</span>
+            <button type="button" class="billing-customer-view-btn" data-customer-action="open-profile" data-customer-id="${escapeHtml(profile.customerId)}">${escapeHtml(t("billingViewBills"))} →</button>
           </div>
         </div>
       </article>`;
-  }).join('');
+    })
+    .join("");
 }
 
 function getCustomerProfileById(customerId) {
-  return getCustomerProfiles().find((profile) => profile.customerId === customerId) || null;
+  return (
+    getCustomerProfiles().find(
+      (profile) => profile.customerId === customerId,
+    ) || null
+  );
 }
 
 function openCustomerProfile(customerId) {
@@ -903,73 +1066,113 @@ function openCustomerProfile(customerId) {
   if (!profile || !els.customerModal) return;
   currentCustomerId = customerId;
   customerHistoryPage = 1;
-  els.customerModal.classList.remove('hidden');
-  els.customerModal.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('billing-customer-modal-open');
+  els.customerModal.classList.remove("hidden");
+  els.customerModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("billing-customer-modal-open");
   renderCustomerProfileModal();
 }
 
 function closeCustomerProfile() {
   if (!els.customerModal) return;
-  els.customerModal.classList.add('hidden');
-  els.customerModal.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('billing-customer-modal-open');
-  currentCustomerId = '';
+  els.customerModal.classList.add("hidden");
+  els.customerModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("billing-customer-modal-open");
+  currentCustomerId = "";
   customerHistoryPage = 1;
 }
 
 function renderCustomerProfileModal() {
-  if (!currentCustomerId || !els.customerModal || els.customerModal.classList.contains('hidden')) return;
+  if (
+    !currentCustomerId ||
+    !els.customerModal ||
+    els.customerModal.classList.contains("hidden")
+  )
+    return;
   const profile = getCustomerProfileById(currentCustomerId);
   if (!profile) {
     closeCustomerProfile();
     return;
   }
 
-  const initial = (profile.customerName || '?').trim().charAt(0).toUpperCase() || '?';
+  const initial =
+    (profile.customerName || "?").trim().charAt(0).toUpperCase() || "?";
   if (els.customerModalAvatar) els.customerModalAvatar.textContent = initial;
-  if (els.customerModalName) els.customerModalName.textContent = profile.customerName || t('billingUnknownCustomer');
-  if (els.customerModalPhone) els.customerModalPhone.textContent = profile.phone || profile.customerId;
-  if (els.customerModalBillCount) els.customerModalBillCount.textContent = String(profile.bills.length);
-  if (els.customerModalTotal) els.customerModalTotal.textContent = `Rs. ${formatMoney(profile.totalBilled)}`;
-  if (els.customerModalPaid) els.customerModalPaid.textContent = `Rs. ${formatMoney(profile.totalPaid)}`;
-  if (els.customerModalBalance) els.customerModalBalance.textContent = `Rs. ${formatMoney(profile.totalBalance)}`;
+  if (els.customerModalName)
+    els.customerModalName.textContent =
+      profile.customerName || t("billingUnknownCustomer");
+  if (els.customerModalPhone)
+    els.customerModalPhone.textContent = profile.phone || profile.customerId;
+  if (els.customerModalBillCount)
+    els.customerModalBillCount.textContent = String(profile.bills.length);
+  if (els.customerModalTotal)
+    els.customerModalTotal.textContent = `Rs. ${formatMoney(profile.totalBilled)}`;
+  if (els.customerModalPaid)
+    els.customerModalPaid.textContent = `Rs. ${formatMoney(profile.totalPaid)}`;
+  if (els.customerModalBalance)
+    els.customerModalBalance.textContent = `Rs. ${formatMoney(profile.totalBalance)}`;
 
-  customerHistoryPage = renderPagination(els.customerHistoryPagination, 'customer-history', profile.bills.length, customerHistoryPage, CUSTOMER_HISTORY_PAGE_SIZE);
+  customerHistoryPage = renderPagination(
+    els.customerHistoryPagination,
+    "customer-history",
+    profile.bills.length,
+    customerHistoryPage,
+    CUSTOMER_HISTORY_PAGE_SIZE,
+  );
   const start = (customerHistoryPage - 1) * CUSTOMER_HISTORY_PAGE_SIZE;
-  const pageBills = profile.bills.slice(start, start + CUSTOMER_HISTORY_PAGE_SIZE);
+  const pageBills = profile.bills.slice(
+    start,
+    start + CUSTOMER_HISTORY_PAGE_SIZE,
+  );
   const from = profile.bills.length ? start + 1 : 0;
   const to = Math.min(start + CUSTOMER_HISTORY_PAGE_SIZE, profile.bills.length);
-  if (els.customerModalRange) els.customerModalRange.textContent = t('billingShowingRange', { from, to, total: profile.bills.length });
-  if (els.customerModalBills) els.customerModalBills.innerHTML = pageBills.map(renderCustomerBillCard).join('');
+  if (els.customerModalRange)
+    els.customerModalRange.textContent = t("billingShowingRange", {
+      from,
+      to,
+      total: profile.bills.length,
+    });
+  if (els.customerModalBills)
+    els.customerModalBills.innerHTML = pageBills
+      .map(renderCustomerBillCard)
+      .join("");
 }
 
 function getFilteredBills() {
-  const query = (els.search.value || '').trim().toLowerCase();
+  const query = (els.search.value || "").trim().toLowerCase();
   const sorted = [...bills].sort((a, b) => {
-    const dateCompare = (b.billDate || '').localeCompare(a.billDate || '');
+    const dateCompare = (b.billDate || "").localeCompare(a.billDate || "");
     if (dateCompare !== 0) return dateCompare;
-    return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+    return (b.updatedAt || "").localeCompare(a.updatedAt || "");
   });
 
   if (!query) return sorted;
 
   const phoneQuery = normalizePhoneKey(query);
   return sorted.filter((bill) => {
-    return String(bill.billNo || '').toLowerCase().includes(query)
-      || String(bill.customerName || '').toLowerCase().includes(query)
-      || String(bill.phone || '').toLowerCase().includes(query)
-      || (phoneQuery && normalizePhoneKey(bill.phone || bill.customerId).includes(phoneQuery));
+    return (
+      String(bill.billNo || "")
+        .toLowerCase()
+        .includes(query) ||
+      String(bill.customerName || "")
+        .toLowerCase()
+        .includes(query) ||
+      String(bill.phone || "")
+        .toLowerCase()
+        .includes(query) ||
+      (phoneQuery &&
+        normalizePhoneKey(bill.phone || bill.customerId).includes(phoneQuery))
+    );
   });
 }
 
 function paymentStatusBadge(bill) {
   const type = getBillPaymentType(bill);
-  const classes = type === 'full'
-    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-    : type === 'advance'
-      ? 'bg-amber-100 text-amber-800 border-amber-200'
-      : 'bg-rose-100 text-rose-800 border-rose-200';
+  const classes =
+    type === "full"
+      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+      : type === "advance"
+        ? "bg-amber-100 text-amber-800 border-amber-200"
+        : "bg-rose-100 text-rose-800 border-rose-200";
   return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${classes}">${escapeHtml(getPaymentStatusLabel(type))}</span>`;
 }
 
@@ -977,69 +1180,82 @@ function renderSavedBills() {
   const filtered = getFilteredBills();
   const hasBills = filtered.length > 0;
 
-  els.empty.classList.toggle('hidden', hasBills);
-  els.savedWrap.classList.toggle('hidden', !hasBills);
-  els.savedCards?.classList.toggle('hidden', !hasBills);
+  els.empty.classList.toggle("hidden", hasBills);
+  els.savedWrap.classList.toggle("hidden", !hasBills);
+  els.savedCards?.classList.toggle("hidden", !hasBills);
 
   if (!hasBills) {
-    els.savedBody.innerHTML = '';
-    if (els.savedCards) els.savedCards.innerHTML = '';
+    els.savedBody.innerHTML = "";
+    if (els.savedCards) els.savedCards.innerHTML = "";
     if (els.savedPagination) {
-      els.savedPagination.innerHTML = '';
-      els.savedPagination.classList.add('hidden');
+      els.savedPagination.innerHTML = "";
+      els.savedPagination.classList.add("hidden");
     }
     savedBillsPage = 1;
     return;
   }
 
-  savedBillsPage = renderPagination(els.savedPagination, 'saved-bills', filtered.length, savedBillsPage, SAVED_BILLS_PAGE_SIZE);
+  savedBillsPage = renderPagination(
+    els.savedPagination,
+    "saved-bills",
+    filtered.length,
+    savedBillsPage,
+    SAVED_BILLS_PAGE_SIZE,
+  );
   const start = (savedBillsPage - 1) * SAVED_BILLS_PAGE_SIZE;
   const pageBills = filtered.slice(start, start + SAVED_BILLS_PAGE_SIZE);
 
-  els.savedBody.innerHTML = pageBills.map((bill) => {
-    const normalized = normalizeBill(bill);
-    const hasBalance = normalized.balanceAmount > 0;
-    return `
+  els.savedBody.innerHTML = pageBills
+    .map((bill) => {
+      const normalized = normalizeBill(bill);
+      const hasBalance = normalized.balanceAmount > 0;
+      return `
     <tr class="hover:bg-slate-50">
-      <td class="px-3 py-3 font-semibold text-slate-900">${escapeHtml(normalized.billNo || '—')}</td>
+      <td class="px-3 py-3 font-semibold text-slate-900">${escapeHtml(normalized.billNo || "—")}</td>
       <td class="px-3 py-3">
-        <div>${escapeHtml(normalized.customerName || '—')}</div>
-        <div class="mt-1 text-[11px] text-slate-500">${escapeHtml(normalized.phone || '')}</div>
+        <div>${escapeHtml(normalized.customerName || "—")}</div>
+        <div class="mt-1 text-[11px] text-slate-500">${escapeHtml(normalized.phone || "")}</div>
         <div class="mt-1">${paymentStatusBadge(normalized)}</div>
       </td>
       <td class="px-3 py-3 whitespace-nowrap">${formatDate(normalized.billDate)}</td>
       <td class="px-3 py-3 text-right whitespace-nowrap font-semibold">Rs. ${formatMoney(normalized.totalAmount)}</td>
-      <td class="px-3 py-3 text-right whitespace-nowrap ${hasBalance ? 'text-violet-700 font-bold' : 'text-emerald-700 font-semibold'}">
+      <td class="px-3 py-3 text-right whitespace-nowrap ${hasBalance ? "text-violet-700 font-bold" : "text-emerald-700 font-semibold"}">
         Rs. ${formatMoney(normalized.balanceAmount)}
-        <div class="text-[10px] font-medium text-slate-500 mt-0.5">${escapeHtml(t('billingPaidShort'))}: Rs. ${formatMoney(normalized.paidAmount)}</div>
+        <div class="text-[10px] font-medium text-slate-500 mt-0.5">${escapeHtml(t("billingPaidShort"))}: Rs. ${formatMoney(normalized.paidAmount)}</div>
       </td>
       <td class="px-3 py-3">
         <div class="flex flex-wrap justify-end gap-1">
-          ${hasBalance ? `<button type="button" data-bill-action="collect-balance" data-id="${escapeHtml(normalized.id)}"
-                  class="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">${escapeHtml(t('billingCollectBalance'))}</button>` : ''}
+          ${
+            hasBalance
+              ? `<button type="button" data-bill-action="collect-balance" data-id="${escapeHtml(normalized.id)}"
+                  class="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">${escapeHtml(t("billingCollectBalance"))}</button>`
+              : ""
+          }
           <button type="button" data-bill-action="preview" data-id="${escapeHtml(normalized.id)}"
-                  class="px-2.5 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50">${escapeHtml(t('billingPreview'))}</button>
+                  class="px-2.5 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50">${escapeHtml(t("billingPreview"))}</button>
           <button type="button" data-bill-action="edit" data-id="${escapeHtml(normalized.id)}"
-                  class="px-2.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700">${escapeHtml(t('btnEdit'))}</button>
+                  class="px-2.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700">${escapeHtml(t("btnEdit"))}</button>
           <button type="button" data-bill-action="pdf" data-id="${escapeHtml(normalized.id)}"
                   class="px-2.5 py-1.5 rounded-md bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700">PDF</button>
           <button type="button" data-bill-action="delete" data-id="${escapeHtml(normalized.id)}"
-                  class="px-2.5 py-1.5 rounded-md bg-red-600 text-white text-xs font-semibold hover:bg-red-700">${escapeHtml(t('btnDelete'))}</button>
+                  class="px-2.5 py-1.5 rounded-md bg-red-600 text-white text-xs font-semibold hover:bg-red-700">${escapeHtml(t("btnDelete"))}</button>
         </div>
       </td>
     </tr>`;
-  }).join('');
+    })
+    .join("");
 
   if (els.savedCards) {
-    els.savedCards.innerHTML = pageBills.map((rawBill) => {
-      const bill = normalizeBill(rawBill);
-      const hasBalance = bill.balanceAmount > 0;
-      return `
+    els.savedCards.innerHTML = pageBills
+      .map((rawBill) => {
+        const bill = normalizeBill(rawBill);
+        const hasBalance = bill.balanceAmount > 0;
+        return `
       <article class="billing-saved-card">
         <div class="billing-saved-card-head">
           <div class="min-w-0">
-            <p class="billing-saved-card-label">${escapeHtml(t('billingBillNo'))}</p>
-            <p class="billing-saved-card-number">${escapeHtml(bill.billNo || '—')}</p>
+            <p class="billing-saved-card-label">${escapeHtml(t("billingBillNo"))}</p>
+            <p class="billing-saved-card-number">${escapeHtml(bill.billNo || "—")}</p>
           </div>
           <div class="text-right">
             <div class="billing-saved-card-date">${formatDate(bill.billDate)}</div>
@@ -1048,26 +1264,27 @@ function renderSavedBills() {
         </div>
 
         <div class="billing-saved-card-customer">
-          <p class="billing-saved-card-label">${escapeHtml(t('billingCustomerName'))}</p>
-          <p class="font-semibold text-slate-900 break-words">${escapeHtml(bill.customerName || '—')}</p>
-          ${bill.phone ? `<p class="mt-1 text-xs text-slate-500 break-all">${escapeHtml(bill.phone)}</p>` : ''}
+          <p class="billing-saved-card-label">${escapeHtml(t("billingCustomerName"))}</p>
+          <p class="font-semibold text-slate-900 break-words">${escapeHtml(bill.customerName || "—")}</p>
+          ${bill.phone ? `<p class="mt-1 text-xs text-slate-500 break-all">${escapeHtml(bill.phone)}</p>` : ""}
         </div>
 
         <div class="billing-saved-card-money">
-          <div><span>${escapeHtml(t('billingTotal'))}</span><strong>Rs. ${formatMoney(bill.totalAmount)}</strong></div>
-          <div><span>${escapeHtml(t('billingPaidShort'))}</span><strong>Rs. ${formatMoney(bill.paidAmount)}</strong></div>
-          <div class="${hasBalance ? 'billing-balance-due' : 'billing-balance-paid'}"><span>${escapeHtml(t('billingBalance'))}</span><strong>Rs. ${formatMoney(bill.balanceAmount)}</strong></div>
+          <div><span>${escapeHtml(t("billingTotal"))}</span><strong>Rs. ${formatMoney(bill.totalAmount)}</strong></div>
+          <div><span>${escapeHtml(t("billingPaidShort"))}</span><strong>Rs. ${formatMoney(bill.paidAmount)}</strong></div>
+          <div class="${hasBalance ? "billing-balance-due" : "billing-balance-paid"}"><span>${escapeHtml(t("billingBalance"))}</span><strong>Rs. ${formatMoney(bill.balanceAmount)}</strong></div>
         </div>
 
         <div class="billing-saved-card-actions">
-          ${hasBalance ? `<button type="button" data-bill-action="collect-balance" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-emerald-600 text-white">${escapeHtml(t('billingCollectBalance'))}</button>` : ''}
-          <button type="button" data-bill-action="preview" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action border border-slate-300 bg-white text-slate-700">${escapeHtml(t('billingPreview'))}</button>
-          <button type="button" data-bill-action="edit" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-brand-600 text-white">${escapeHtml(t('btnEdit'))}</button>
+          ${hasBalance ? `<button type="button" data-bill-action="collect-balance" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-emerald-600 text-white">${escapeHtml(t("billingCollectBalance"))}</button>` : ""}
+          <button type="button" data-bill-action="preview" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action border border-slate-300 bg-white text-slate-700">${escapeHtml(t("billingPreview"))}</button>
+          <button type="button" data-bill-action="edit" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-brand-600 text-white">${escapeHtml(t("btnEdit"))}</button>
           <button type="button" data-bill-action="pdf" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-violet-600 text-white">PDF</button>
-          <button type="button" data-bill-action="delete" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-red-600 text-white">${escapeHtml(t('btnDelete'))}</button>
+          <button type="button" data-bill-action="delete" data-id="${escapeHtml(bill.id)}" class="billing-mobile-action bg-red-600 text-white">${escapeHtml(t("btnDelete"))}</button>
         </div>
       </article>`;
-    }).join('');
+      })
+      .join("");
   }
 }
 
@@ -1078,15 +1295,16 @@ function renderPreviewItems(bill) {
 
   while (rows.length < minRows) rows.push({ blank: true });
 
-  els.previewItems.innerHTML = rows.map((item, index) => {
-    if (item.blank) {
-      return `<tr><td>${index + 1}</td><td>&nbsp;</td><td></td><td></td><td></td></tr>`;
-    }
+  els.previewItems.innerHTML = rows
+    .map((item, index) => {
+      if (item.blank) {
+        return `<tr><td>${index + 1}</td><td>&nbsp;</td><td></td><td></td><td></td></tr>`;
+      }
 
-    const unitPrice = Number(item.unitPrice) || 0;
-    const amount = Number(item.amount) || (Number(item.qty) || 0) * unitPrice;
+      const unitPrice = Number(item.unitPrice) || 0;
+      const amount = Number(item.amount) || (Number(item.qty) || 0) * unitPrice;
 
-    return `
+      return `
       <tr>
         <td>${index + 1}</td>
         <td>${escapeHtml(translateItem(item))}</td>
@@ -1095,15 +1313,16 @@ function renderPreviewItems(bill) {
         <td>${formatMoney(amount)}</td>
       </tr>
     `;
-  }).join('');
+    })
+    .join("");
 }
 
 function renderPreview(bill) {
   currentPreviewBill = bill;
 
-  els.previewCustomer.textContent = bill.customerName || '—';
-  els.previewPhone.textContent = bill.phone || '—';
-  els.previewBillNo.textContent = bill.billNo || '—';
+  els.previewCustomer.textContent = bill.customerName || "—";
+  els.previewPhone.textContent = bill.phone || "—";
+  els.previewBillNo.textContent = bill.billNo || "—";
   els.previewBillDate.textContent = formatDate(bill.billDate);
   els.previewReceivedDate.textContent = formatDate(bill.receivedDate);
   els.previewDeliveryDate.textContent = formatDate(bill.deliveryDate);
@@ -1111,15 +1330,17 @@ function renderPreview(bill) {
   els.previewTotal.textContent = formatMoney(normalized.totalAmount);
   els.previewAdvance.textContent = formatMoney(normalized.paidAmount);
   els.previewBalance.textContent = formatMoney(normalized.balanceAmount);
-  if (els.previewPaymentStatus) els.previewPaymentStatus.textContent = getPaymentStatusLabel(normalized);
+  if (els.previewPaymentStatus)
+    els.previewPaymentStatus.textContent = getPaymentStatusLabel(normalized);
 
   // Show the paid seal only when the bill is fully settled.
   if (els.paidSeal) {
-    const isPaidInFull = normalized.totalAmount > 0
-      && normalized.paidAmount >= normalized.totalAmount
-      && normalized.balanceAmount <= 0;
-    els.paidSeal.classList.toggle('is-visible', isPaidInFull);
-    els.paidSeal.setAttribute('aria-hidden', isPaidInFull ? 'false' : 'true');
+    const isPaidInFull =
+      normalized.totalAmount > 0 &&
+      normalized.paidAmount >= normalized.totalAmount &&
+      normalized.balanceAmount <= 0;
+    els.paidSeal.classList.toggle("is-visible", isPaidInFull);
+    els.paidSeal.setAttribute("aria-hidden", isPaidInFull ? "false" : "true");
   }
 
   renderPreviewItems(normalized);
@@ -1127,12 +1348,12 @@ function renderPreview(bill) {
 
 function fitPreviewPaper() {
   if (!els.paper || !els.paperStage || !els.previewScroll) return;
-  if (els.previewModal?.classList.contains('hidden')) return;
+  if (els.previewModal?.classList.contains("hidden")) return;
 
   // Always measure the original A5 paper size, then scale only the on-screen
   // preview. Printing and PDF export still use the real 148 mm × 210 mm size.
   const oldTransform = els.paper.style.transform;
-  els.paper.style.transform = 'none';
+  els.paper.style.transform = "none";
 
   const naturalWidth = els.paper.offsetWidth;
   const naturalHeight = els.paper.offsetHeight;
@@ -1140,15 +1361,23 @@ function fitPreviewPaper() {
   const horizontalPadding =
     (parseFloat(scrollStyle.paddingLeft) || 0) +
     (parseFloat(scrollStyle.paddingRight) || 0);
-  const availableWidth = Math.max(1, els.previewScroll.clientWidth - horizontalPadding - 2);
+  const availableWidth = Math.max(
+    1,
+    els.previewScroll.clientWidth - horizontalPadding - 2,
+  );
   const scale = Math.min(1, availableWidth / naturalWidth);
 
-  if (!Number.isFinite(scale) || scale <= 0 || !naturalWidth || !naturalHeight) {
-    els.paper.style.transform = oldTransform || 'none';
+  if (
+    !Number.isFinite(scale) ||
+    scale <= 0 ||
+    !naturalWidth ||
+    !naturalHeight
+  ) {
+    els.paper.style.transform = oldTransform || "none";
     return;
   }
 
-  els.paper.style.transformOrigin = 'top left';
+  els.paper.style.transformOrigin = "top left";
   els.paper.style.transform = `scale(${scale})`;
   els.paperStage.style.width = `${Math.ceil(naturalWidth * scale)}px`;
   els.paperStage.style.height = `${Math.ceil(naturalHeight * scale)}px`;
@@ -1163,37 +1392,37 @@ function refreshPreviewFit() {
 
 function openPreview(bill) {
   renderPreview(bill);
-  els.previewModal.classList.remove('hidden');
-  els.previewModal.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('billing-modal-open');
+  els.previewModal.classList.remove("hidden");
+  els.previewModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("billing-modal-open");
   refreshPreviewFit();
 }
 
 function closePreview() {
-  els.previewModal.classList.add('hidden');
-  els.previewModal.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('billing-modal-open');
+  els.previewModal.classList.add("hidden");
+  els.previewModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("billing-modal-open");
 }
 
 async function downloadPreviewPdf() {
   if (!currentPreviewBill) return;
 
   if (!window.html2canvas || !window.jspdf?.jsPDF) {
-    showToast(t('toastPdfUnavailable'), 'error');
+    showToast(t("toastPdfUnavailable"), "error");
     return;
   }
 
   const oldText = els.pdfBtn.textContent;
   els.pdfBtn.disabled = true;
-  els.pdfBtn.textContent = t('billingPreparingPdf');
+  els.pdfBtn.textContent = t("billingPreparingPdf");
 
   const previousTransform = els.paper.style.transform;
-  const previousStageWidth = els.paperStage?.style.width || '';
-  const previousStageHeight = els.paperStage?.style.height || '';
+  const previousStageWidth = els.paperStage?.style.width || "";
+  const previousStageHeight = els.paperStage?.style.height || "";
 
   try {
     // Capture the true A5 paper, not the scaled mobile/tablet preview.
-    els.paper.style.transform = 'none';
+    els.paper.style.transform = "none";
     if (els.paperStage) {
       els.paperStage.style.width = `${els.paper.offsetWidth}px`;
       els.paperStage.style.height = `${els.paper.offsetHeight}px`;
@@ -1201,7 +1430,7 @@ async function downloadPreviewPdf() {
 
     const canvas = await window.html2canvas(els.paper, {
       scale: 2.4,
-      backgroundColor: '#ffffff',
+      backgroundColor: "#ffffff",
       useCORS: true,
       scrollX: 0,
       scrollY: 0,
@@ -1209,30 +1438,33 @@ async function downloadPreviewPdf() {
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
+      orientation: "portrait",
+      unit: "mm",
       format: [148, 210],
     });
 
-    const image = canvas.toDataURL('image/jpeg', 0.97);
-    pdf.addImage(image, 'JPEG', 0, 0, 148, 210);
+    const image = canvas.toDataURL("image/jpeg", 0.97);
+    pdf.addImage(image, "JPEG", 0, 0, 148, 210);
 
-    const safeNo = String(currentPreviewBill.billNo || 'bill').replace(/[^a-z0-9_-]+/gi, '-');
+    const safeNo = String(currentPreviewBill.billNo || "bill").replace(
+      /[^a-z0-9_-]+/gi,
+      "-",
+    );
     const fileName = `madhusanka-tailors-bill-${safeNo}.pdf`;
-    const pdfBlob = pdf.output('blob');
+    const pdfBlob = pdf.output("blob");
     const url = URL.createObjectURL(pdfBlob);
-    const anchor = document.createElement('a');
+    const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = fileName;
-    anchor.rel = 'noopener';
+    anchor.rel = "noopener";
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast(t('billingToastPdf'), 'success');
+    showToast(t("billingToastPdf"), "success");
   } catch (error) {
     console.error(error);
-    showToast(t('toastPdfUnavailable'), 'error');
+    showToast(t("toastPdfUnavailable"), "error");
   } finally {
     els.paper.style.transform = previousTransform;
     if (els.paperStage) {
@@ -1254,24 +1486,31 @@ async function collectBillBalance(bill) {
   const normalized = normalizeBill(bill);
   if (normalized.balanceAmount <= 0) return;
 
-  if (!window.confirm(t('billingConfirmCollectBalance', {
-    amount: `Rs. ${formatMoney(normalized.balanceAmount)}`,
-    number: normalized.billNo || '',
-  }))) return;
+  if (
+    !(await askAppConfirmation(
+      t("dialogConfirmTitle"),
+      t("billingConfirmCollectBalance", {
+        amount: `Rs. ${formatMoney(normalized.balanceAmount)}`,
+        number: normalized.billNo || "",
+      }),
+      { confirmText: t("dialogConfirm"), cancelText: t("dialogCancel") },
+    ))
+  )
+    return;
 
   const previousBills = [...bills];
-  
+
   // Find the actual bill in the array and update it directly
   const billIndex = bills.findIndex((item) => item.id === bill.id);
   if (billIndex < 0) {
-    showToast(t('toastSyncError'), 'error');
+    showToast(t("toastSyncError"), "error");
     return;
   }
 
   // Create updated bill with all original fields plus payment updates
   const updated = {
     ...bills[billIndex],
-    paymentType: 'full',
+    paymentType: "full",
     paidAmount: normalized.totalAmount,
     advanceAmount: normalized.totalAmount,
     balanceAmount: 0,
@@ -1285,11 +1524,11 @@ async function collectBillBalance(bill) {
     if (currentBillId === updated.id) fillForm(updated);
     if (currentPreviewBill?.id === updated.id) renderPreview(updated);
     renderAll();
-    showToast(t('billingToastBalanceCollected'), 'success');
+    showToast(t("billingToastBalanceCollected"), "success");
   } catch (error) {
     bills = previousBills;
     renderAll();
-    showToast(t('toastSyncError'), 'error');
+    showToast(t("toastSyncError"), "error");
   }
 }
 
@@ -1297,7 +1536,18 @@ async function deleteBill(id) {
   const bill = bills.find((item) => item.id === id);
   if (!bill) return;
 
-  if (!window.confirm(t('billingConfirmDelete', { number: bill.billNo }))) return;
+  if (
+    !(await askAppConfirmation(
+      t("dialogConfirmTitle"),
+      t("billingConfirmDelete", { number: bill.billNo }),
+      {
+        danger: true,
+        confirmText: t("dialogDelete"),
+        cancelText: t("dialogCancel"),
+      },
+    ))
+  )
+    return;
 
   const previousBills = [...bills];
   bills = bills.filter((item) => item.id !== id);
@@ -1306,28 +1556,29 @@ async function deleteBill(id) {
     await persistCurrentBills();
     if (currentBillId === id) resetForm();
     if (currentPreviewBill?.id === id) closePreview();
-    showToast(t('billingToastDeleted'), 'success');
+    showToast(t("billingToastDeleted"), "success");
     renderAll();
   } catch {
     bills = previousBills;
     renderAll();
-    showToast(t('toastSyncError'), 'error');
+    showToast(t("toastSyncError"), "error");
   }
 }
 
 function renderItemLanguage() {
-  [...els.itemsBody.querySelectorAll('tr')].forEach((row) => {
+  [...els.itemsBody.querySelectorAll("tr")].forEach((row) => {
     const key = row.dataset.itemKey;
     const item = BILL_ITEMS.find((entry) => entry.key === key);
-    const cell = row.querySelector('.billing-item-name');
-    if (item && cell) cell.textContent = getLocaleSafe() === 'si' ? item.si : item.en;
-    const customName = row.querySelector('.billing-custom-name');
-    if (customName) customName.placeholder = t('billingOtherItemPlaceholder');
+    const cell = row.querySelector(".billing-item-name");
+    if (item && cell)
+      cell.textContent = getLocaleSafe() === "si" ? item.si : item.en;
+    const customName = row.querySelector(".billing-custom-name");
+    if (customName) customName.placeholder = t("billingOtherItemPlaceholder");
 
-    const labels = row.querySelectorAll('.billing-mobile-field-label');
-    if (labels[0]) labels[0].textContent = t('billingQty');
-    if (labels[1]) labels[1].textContent = t('billingUnitPrice');
-    if (labels[2]) labels[2].textContent = t('billingAmount');
+    const labels = row.querySelectorAll(".billing-mobile-field-label");
+    if (labels[0]) labels[0].textContent = t("billingQty");
+    if (labels[1]) labels[1].textContent = t("billingUnitPrice");
+    if (labels[2]) labels[2].textContent = t("billingAmount");
   });
 
   updatePaymentControls();
@@ -1350,8 +1601,8 @@ function renderAll() {
 }
 
 function escapeHtml(value) {
-  const div = document.createElement('div');
-  div.textContent = String(value ?? '');
+  const div = document.createElement("div");
+  div.textContent = String(value ?? "");
   return div.innerHTML;
 }
 
@@ -1368,19 +1619,20 @@ async function handleSave(openAfterSave) {
   setSaveButtonsLoading(true, openAfterSave);
   try {
     const saved = await saveBill(bill);
-    if (saved && openAfterSave) openPreview(normalizeBill(getBillById(bill.id) || bill));
+    if (saved && openAfterSave)
+      openPreview(normalizeBill(getBillById(bill.id) || bill));
   } finally {
     setSaveButtonsLoading(false, openAfterSave);
   }
 }
 
 function handleSavedActions(event) {
-  const button = event.target.closest('[data-bill-action]');
+  const button = event.target.closest("[data-bill-action]");
   if (!button) return;
 
   const action = button.dataset.billAction;
 
-  if (action === 'close-preview') {
+  if (action === "close-preview") {
     closePreview();
     return;
   }
@@ -1388,107 +1640,129 @@ function handleSavedActions(event) {
   const id = button.dataset.id;
   const bill = id ? getBillById(id) : null;
 
-  if (action === 'preview' && bill) openPreview(normalizeBill(bill));
-  if (action === 'collect-balance' && bill) collectBillBalance(bill);
-  if (action === 'edit' && bill) {
+  if (action === "preview" && bill) openPreview(normalizeBill(bill));
+  if (action === "collect-balance" && bill) collectBillBalance(bill);
+  if (action === "edit" && bill) {
     closePreview();
     closeCustomerProfile();
     fillForm(bill);
   }
-  if (action === 'pdf' && bill) {
+  if (action === "pdf" && bill) {
     openPreview(bill);
     requestAnimationFrame(() => window.setTimeout(downloadPreviewPdf, 120));
   }
-  if (action === 'delete' && id) deleteBill(id);
+  if (action === "delete" && id) deleteBill(id);
 }
 
 function initEvents() {
-  els.form.addEventListener('submit', (event) => {
+  els.phone.addEventListener("input", refreshBillingPhoneValidation);
+  els.form.addEventListener("submit", (event) => {
     event.preventDefault();
     handleSave(true);
   });
 
-  els.saveBtn.addEventListener('click', () => handleSave(false));
-  els.clearBtn.addEventListener('click', () => {
-    if (!window.confirm(t('billingConfirmClear'))) return;
+  els.saveBtn.addEventListener("click", () => handleSave(false));
+  els.clearBtn.addEventListener("click", async () => {
+    if (
+      !(await askAppConfirmation(
+        t("dialogConfirmTitle"),
+        t("billingConfirmClear"),
+        {
+          danger: true,
+          confirmText: t("dialogClear"),
+          cancelText: t("dialogCancel"),
+        },
+      ))
+    )
+      return;
     resetForm();
-    document.getElementById('billingFormSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document
+      .getElementById("billingFormSection")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
     window.setTimeout(() => els.billNo.focus({ preventScroll: true }), 180);
   });
 
-  els.advance.addEventListener('input', updateFormTotals);
-  els.paymentType?.addEventListener('change', () => {
-    if (els.paymentType.value === 'advance') els.advance.value = '';
+  els.advance.addEventListener("input", updateFormTotals);
+  els.paymentType?.addEventListener("change", () => {
+    if (els.paymentType.value === "advance") els.advance.value = "";
     updatePaymentControls();
     updateFormTotals();
-    if (els.paymentType.value === 'advance') window.setTimeout(() => els.advance.focus(), 0);
+    if (els.paymentType.value === "advance")
+      window.setTimeout(() => els.advance.focus(), 0);
   });
-  els.search.addEventListener('input', () => {
+  els.search.addEventListener("input", () => {
     savedBillsPage = 1;
     renderSavedBills();
   });
-  els.customerSearch?.addEventListener('input', () => {
+  els.customerSearch?.addEventListener("input", () => {
     customerPage = 1;
     renderCustomerProfiles();
   });
 
-  els.itemSelect?.addEventListener('change', () => {
+  els.itemSelect?.addEventListener("change", () => {
     const key = els.itemSelect.value;
     if (!key) return;
     addBillingItem(key, {}, true);
-    els.itemSelect.value = '';
+    els.itemSelect.value = "";
   });
 
-  els.selectedItemsSummary?.addEventListener('click', (event) => {
-    const remove = event.target.closest('[data-remove-row]');
+  els.selectedItemsSummary?.addEventListener("click", (event) => {
+    const remove = event.target.closest("[data-remove-row]");
     if (remove) {
-      removeBillingItem(remove.dataset.removeRow || '');
+      removeBillingItem(remove.dataset.removeRow || "");
       return;
     }
-    const focus = event.target.closest('[data-focus-row]');
-    if (focus) focusBillingRow(focus.dataset.focusRow || '');
+    const focus = event.target.closest("[data-focus-row]");
+    if (focus) focusBillingRow(focus.dataset.focusRow || "");
   });
 
-  els.itemsBody?.addEventListener('click', (event) => {
-    const remove = event.target.closest('[data-remove-item]');
+  els.itemsBody?.addEventListener("click", (event) => {
+    const remove = event.target.closest("[data-remove-item]");
     if (!remove) return;
-    removeBillingItem(remove.dataset.removeItem || '');
+    removeBillingItem(remove.dataset.removeItem || "");
   });
-  els.savedBody.addEventListener('click', handleSavedActions);
-  els.savedCards?.addEventListener('click', handleSavedActions);
+  els.savedBody.addEventListener("click", handleSavedActions);
+  els.savedCards?.addEventListener("click", handleSavedActions);
 
   const handlePaginationClick = (event) => {
-    const button = event.target.closest('[data-page-scope][data-page]');
+    const button = event.target.closest("[data-page-scope][data-page]");
     if (!button || button.disabled) return;
     const page = Number(button.dataset.page) || 1;
     const scope = button.dataset.pageScope;
-    if (scope === 'customers') {
+    if (scope === "customers") {
       customerPage = page;
       renderCustomerProfiles();
-      els.customerProfiles?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      els.customerProfiles?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
     }
-    if (scope === 'saved-bills') {
+    if (scope === "saved-bills") {
       savedBillsPage = page;
       renderSavedBills();
-      els.savedWrap?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      els.savedWrap?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
-    if (scope === 'customer-history') {
+    if (scope === "customer-history") {
       customerHistoryPage = page;
       renderCustomerProfileModal();
     }
   };
 
-  els.customerPagination?.addEventListener('click', handlePaginationClick);
-  els.savedPagination?.addEventListener('click', handlePaginationClick);
+  els.customerPagination?.addEventListener("click", handlePaginationClick);
+  els.savedPagination?.addEventListener("click", handlePaginationClick);
 
-  els.customerProfiles?.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-customer-action="open-profile"]');
+  els.customerProfiles?.addEventListener("click", (event) => {
+    const button = event.target.closest(
+      '[data-customer-action="open-profile"]',
+    );
     if (!button) return;
-    openCustomerProfile(button.dataset.customerId || '');
+    openCustomerProfile(button.dataset.customerId || "");
   });
 
-  els.customerModal?.addEventListener('click', (event) => {
-    const closeButton = event.target.closest('[data-customer-action="close-profile"]');
+  els.customerModal?.addEventListener("click", (event) => {
+    const closeButton = event.target.closest(
+      '[data-customer-action="close-profile"]',
+    );
     if (closeButton) {
       closeCustomerProfile();
       return;
@@ -1497,58 +1771,64 @@ function initEvents() {
     handleSavedActions(event);
   });
 
-  els.previewModal.addEventListener('click', handleSavedActions);
+  els.previewModal.addEventListener("click", handleSavedActions);
 
-  els.previewEditBtn.addEventListener('click', () => {
+  els.previewEditBtn.addEventListener("click", () => {
     if (!currentPreviewBill) return;
     closePreview();
     fillForm(currentPreviewBill);
   });
 
-  els.printBtn.addEventListener('click', printPreview);
-  els.pdfBtn.addEventListener('click', downloadPreviewPdf);
-  els.whatsappBtn?.addEventListener('click', shareBillOnWhatsApp);
+  els.printBtn.addEventListener("click", printPreview);
+  els.pdfBtn.addEventListener("click", downloadPreviewPdf);
+  els.whatsappBtn?.addEventListener("click", shareBillOnWhatsApp);
 
-  els.logoutBtn.addEventListener('click', () => {
+  els.logoutBtn.addEventListener("click", () => {
     logout().catch(() => {
-      window.location.href = 'login.html';
+      window.location.href = "login.html";
     });
   });
 
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
-    if (!els.previewModal.classList.contains('hidden')) {
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (!els.previewModal.classList.contains("hidden")) {
       closePreview();
       return;
     }
-    if (els.customerModal && !els.customerModal.classList.contains('hidden')) closeCustomerProfile();
+    if (els.customerModal && !els.customerModal.classList.contains("hidden"))
+      closeCustomerProfile();
   });
 
   let previewResizeTimer = null;
   const handlePreviewResize = () => {
     window.clearTimeout(previewResizeTimer);
     previewResizeTimer = window.setTimeout(() => {
-      if (!els.previewModal.classList.contains('hidden')) refreshPreviewFit();
+      if (!els.previewModal.classList.contains("hidden")) refreshPreviewFit();
     }, 80);
   };
 
-  window.addEventListener('resize', handlePreviewResize, { passive: true });
-  window.addEventListener('orientationchange', handlePreviewResize, { passive: true });
+  window.addEventListener("resize", handlePreviewResize, { passive: true });
+  window.addEventListener("orientationchange", handlePreviewResize, {
+    passive: true,
+  });
 
   const handleCompactBillingChange = () => refreshBillingItemPicker();
-  if (typeof compactBillingQuery.addEventListener === 'function') {
-    compactBillingQuery.addEventListener('change', handleCompactBillingChange);
-  } else if (typeof compactBillingQuery.addListener === 'function') {
+  if (typeof compactBillingQuery.addEventListener === "function") {
+    compactBillingQuery.addEventListener("change", handleCompactBillingChange);
+  } else if (typeof compactBillingQuery.addListener === "function") {
     compactBillingQuery.addListener(handleCompactBillingChange);
   }
 
-  window.addEventListener('localechange', () => {
+  window.addEventListener("localechange", () => {
     setSyncState(syncState);
     if (currentBillId) {
       const bill = getBillById(currentBillId);
-      if (bill) els.formTitle.textContent = t('billingEditBill', { number: bill.billNo });
+      if (bill)
+        els.formTitle.textContent = t("billingEditBill", {
+          number: bill.billNo,
+        });
     } else {
-      els.formTitle.textContent = t('billingNewBill');
+      els.formTitle.textContent = t("billingNewBill");
     }
 
     updateSaveButtonLabels();
@@ -1564,14 +1844,28 @@ async function init() {
   createItemRows();
   resetForm();
   initEvents();
-  setSyncState('loading');
+  setSyncState("loading");
 
   subscribeBills(
     (items) => {
       bills = Array.isArray(items) ? items.map(normalizeBill) : [];
       hideLoading();
-      setSyncState('saved');
+      setSyncState("saved");
       renderAll();
+
+      if (requestedCustomer && els.search && !els.search.value) {
+        els.search.value = requestedCustomer;
+        renderSavedBills();
+      }
+      if (requestedBillId) {
+        const requestedBill = getBillById(requestedBillId);
+        if (requestedBill) {
+          fillForm(requestedBill);
+          document
+            .getElementById("billingFormSection")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
 
       if (currentPreviewBill) {
         const fresh = bills.find((bill) => bill.id === currentPreviewBill.id);
@@ -1581,16 +1875,16 @@ async function init() {
     (error) => {
       console.error(error);
       hideLoading();
-      setSyncState('error');
-      showToast(t('toastSyncError'), 'error');
-    }
+      setSyncState("error");
+      showToast(t("toastSyncError"), "error");
+    },
   );
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   init().catch((error) => {
     console.error(error);
     hideLoading();
-    showToast(t('toastSyncError'), 'error');
+    showToast(t("toastSyncError"), "error");
   });
 });

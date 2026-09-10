@@ -118,6 +118,12 @@ export function updateRentalStatus(id, status) {
   try { ensureReady(); } catch (error) { return Promise.reject(error); }
   const rentalRef = doc(db, RENTAL_RECORDS, String(id).replaceAll('/', '-'));
   rentalQueue = rentalQueue.then(async () => {
+    if (!navigator.onLine) {
+      await setDoc(rentalRef, { id: String(id), status, updatedAt: serverTimestamp() }, { merge: true });
+      const cached = rentalCache.get(String(id));
+      if (cached) rentalCache.set(String(id), { ...cached, status });
+      return;
+    }
     await runTransaction(db, async (transaction) => {
       const snapshot = await transaction.get(rentalRef);
       if (!snapshot.exists()) throw new Error('This booking no longer exists. Refresh and try again.');

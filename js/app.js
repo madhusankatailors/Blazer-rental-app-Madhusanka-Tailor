@@ -1,5 +1,7 @@
 import { requireAuth, logout } from './auth.js';
 import { subscribeRentals, saveRentals as persistRentals, updateRentalStatus } from './storage.js';
+import { updatePhoneFieldState } from './phone-validation.js';
+import { askAppConfirmation, showAppNotice } from './ui-dialog.js';
 
 const PRICES = { 'Light Color': 2000, 'Dark Color': 1750 };
 
@@ -15,6 +17,7 @@ let pendingRestore = null;
 let previewReceiptRentalId = null;
 let calendarMonth = new Date(`${todayISO()}T12:00:00`);
 let selectedCalendarDate = todayISO();
+let allowTodayPickupReminder = localStorage.getItem('allowTodayPickupReminder') === 'true';
 const ITEMS_PER_PAGE = 10;
 let currentPage = 1;
 
@@ -103,6 +106,7 @@ const els = {
   calendarContent: $('calendarContent'),
   calendarTodayBtn: $('calendarTodayBtn'),
   calendarNextBtn: $('calendarNextBtn'),
+  calendarTodayReminderToggle: $('calendarTodayReminderToggle'),
   calendarMonthLabel: $('calendarMonthLabel'),
   calendarGrid: $('calendarGrid'),
   calendarSelectedDate: $('calendarSelectedDate'),
@@ -496,7 +500,7 @@ async function saveRentals() {
   } catch (error) {
     console.error(error);
     setSyncState('error');
-    alert(t('syncError'));
+    showToast(t('syncError'), 'error');
     throw error;
   } finally {
     pendingLocalWrites = Math.max(0, pendingLocalWrites - 1);
@@ -509,6 +513,7 @@ function generateId() {
 
 function resetForm() {
   els.form.reset();
+  refreshPhoneValidation();
   els.editId.value = '';
   setSecondPhoneVisible(false);
   returnDateManuallyEdited = false;
@@ -558,6 +563,17 @@ function getFormData() {
     status: els.status.value,
     notes: els.notes.value.trim(),
   };
+}
+
+function refreshPhoneValidation() {
+  const messages = {
+    progress: (count) => t('phoneDigitsProgress', { count }),
+    valid: t('phoneDigitsValid'),
+    invalid: t('phoneDigitsInvalid'),
+  };
+  const phoneValid = updatePhoneFieldState(els.phoneNumber, $('phoneNumberMessage'), messages);
+  const phone2Valid = updatePhoneFieldState(els.phoneNumber2, $('phoneNumber2Message'), messages);
+  return { phoneValid, phone2Valid };
 }
 
 function populateForm(rental) {
@@ -846,7 +862,9 @@ function getCalendarEvents(date) {
     if (rental.status !== 'Pending') return [];
     const events = [];
     if (rental.pickupDate === date) events.push({ rental, type: 'pickup' });
-    if (rental.returnDate === date) events.push({ rental, type: 'return' });
+      if (rental.returnDate === date) {
+        events.push({ rental, type: compareDates(todayISO(), date) > 0 ? 'overdue' : 'return' });
+      }
     return events;
   });
 }
@@ -896,14 +914,15 @@ function renderCalendar() {
     const upcomingPickupCount = events.filter((event) => event.type === 'pickup' && compareDates(iso, todayISO()) > 0).length;
     const todayPickupCount = pickupCount - upcomingPickupCount;
     const returnCount = events.filter((event) => event.type === 'return').length;
+      const overdueCount = events.filter((event) => event.type === 'overdue').length;
     const isToday = iso === todayISO();
     const isSelected = iso === selectedCalendarDate;
     const title = events.length
-      ? `${todayPickupCount ? `${todayPickupCount} ${t('calendarPickup')}` : ''}${todayPickupCount && upcomingPickupCount ? ' · ' : ''}${upcomingPickupCount ? `${upcomingPickupCount} ${t('calendarUpcoming')}` : ''}${(todayPickupCount || upcomingPickupCount) && returnCount ? ' · ' : ''}${returnCount ? `${returnCount} ${t('calendarReturn')}` : ''}`
+      ? `${todayPickupCount || upcomingPickupCount ? `${todayPickupCount + upcomingPickupCount} ${t('calendarPickup')}` : ''}${(todayPickupCount || upcomingPickupCount) && returnCount ? ' · ' : ''}${returnCount ? `${returnCount} ${t('calendarReturn')}` : ''}${(todayPickupCount || upcomingPickupCount || returnCount) && overdueCount ? ' · ' : ''}${overdueCount ? `${overdueCount} ${t('calendarOverdue')}` : ''}`
       : '';
     return `<button type="button" data-calendar-date="${iso}" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${index + 1}${title ? `, ${title}` : ''}`)}" class="calendar-day bg-white p-1.5 text-left transition-colors hover:bg-brand-50 ${isSelected ? 'ring-2 ring-inset ring-brand-500' : ''}">
       <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs font-semibold ${isToday ? 'bg-brand-600 text-white' : 'text-slate-700'}">${index + 1}</span>
-      <span class="mt-1 flex flex-wrap gap-1">${todayPickupCount ? `<span class="rounded bg-sky-100 px-1 py-0.5 text-[9px] font-bold text-sky-800">P ${todayPickupCount}</span>` : ''}${upcomingPickupCount ? `<span class="rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold text-emerald-800">P ${upcomingPickupCount}</span>` : ''}${returnCount ? `<span class="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-800">R ${returnCount}</span>` : ''}</span>
+      <span class="mt-1 flex flex-wrap gap-1">${todayPickupCount + upcomingPickupCount ? `<span class="rounded bg-sky-100 px-1 py-0.5 text-[9px] font-bold text-sky-800">P ${todayPickupCount + upcomingPickupCount}</span>` : ''}${returnCount ? `<span class="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-800">R ${returnCount}</span>` : ''}${overdueCount ? `<span class="rounded bg-red-100 px-1 py-0.5 text-[9px] font-bold text-red-800">O ${overdueCount}</span>` : ''}</span>
     </button>`;
   }).join('');
   els.calendarGrid.innerHTML = weekdayHeaders + blanks + days;
@@ -915,16 +934,21 @@ function renderCalendar() {
   const selectedEvents = getCalendarEvents(selectedCalendarDate);
   els.calendarEvents.innerHTML = selectedEvents.length
     ? selectedEvents.map(({ rental, type }) => {
-      const showReminder = type === 'return' || compareDates(rental.pickupDate, todayISO()) > 0;
-      const reminderType = type === 'pickup' ? 'upcoming' : 'return';
+      const showReminder = type === 'return' || type === 'overdue'
+        || (type === 'pickup' && (compareDates(rental.pickupDate, todayISO()) > 0 || allowTodayPickupReminder));
+      const reminderType = type === 'pickup'
+        ? (compareDates(rental.pickupDate, todayISO()) > 0 ? 'upcoming' : 'pickup')
+        : 'return';
       const reminderButton = showReminder
         ? `<button type="button" data-action="calendar-reminder" data-id="${rental.id}" data-reminder-type="${reminderType}" class="calendar-reminder-btn rounded-md bg-[#25D366] px-2 py-1 text-[10px] font-semibold leading-tight text-white hover:bg-[#1fb958]" title="${escapeHtml(t('btnWhatsAppReminder'))}">${escapeHtml(t('btnWhatsAppReminder'))}</button>`
         : '';
-      const eventBadge = type === 'return'
-        ? `<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">${escapeHtml(t('calendarReturn'))}</span>`
-        : renderStatusBadge(rental);
+      const eventBadge = type === 'overdue'
+        ? `<span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-800">${escapeHtml(t('calendarOverdue'))}</span>`
+        : type === 'return'
+          ? `<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">${escapeHtml(t('calendarReturn'))}</span>`
+          : renderStatusBadge(rental);
       return `<article class="rounded-lg border border-slate-200 bg-white p-2.5">
-        <div class="flex items-start justify-between gap-2"><div class="min-w-0"><p class="truncate text-sm font-semibold text-slate-800">${escapeHtml(rental.customerName)}</p><p class="mt-0.5 text-xs font-medium ${type === 'pickup' ? 'text-sky-700' : 'text-amber-700'}">${escapeHtml(type === 'pickup' ? t('calendarPickup') : t('calendarReturn'))} · ${escapeHtml(formatBlazerCodes(rental))}</p></div>${eventBadge}</div>
+        <div class="flex items-start justify-between gap-2"><div class="min-w-0"><p class="truncate text-sm font-semibold text-slate-800">${escapeHtml(rental.customerName)}</p><p class="mt-0.5 text-xs font-medium ${type === 'pickup' ? 'text-sky-700' : type === 'overdue' ? 'text-red-700' : 'text-amber-700'}">${escapeHtml(type === 'pickup' ? t('calendarPickup') : type === 'overdue' ? t('calendarOverdue') : t('calendarReturn'))} · ${escapeHtml(formatBlazerCodes(rental))}</p></div>${eventBadge}</div>
         <div class="calendar-event-actions mt-2 flex items-center gap-1.5">${reminderButton}<button type="button" data-action="view-details" data-id="${rental.id}" class="rounded-md border border-slate-300 px-2 py-1 text-[10px] font-semibold leading-tight text-slate-700 hover:bg-slate-50">${escapeHtml(t('btnViewDetails'))}</button></div>
       </article>`;
     }).join('')
@@ -1039,7 +1063,7 @@ function buildReceiptHtml(rental) {
           <div class="billing-paper-meta-right"><div><span>Date</span><strong>${formatDate(rental.bookingDate)}</strong></div></div>
         </section>
         <table class="billing-paper-table">
-          <colgroup><col style="width:8%"><col style="width:40%"><col style="width:10%"><col style="width:20%"><col style="width:22%"></colgroup>
+          <colgroup><col class="billing-paper-col-no"><col class="billing-paper-col-description"><col class="billing-paper-col-qty"><col class="billing-paper-col-unit-price"><col class="billing-paper-col-amount"></colgroup>
           <thead>
             <tr><th>No.</th><th>Description</th><th>Qty</th><th>Unit Price (Rs.)</th><th>Amount (Rs.)</th></tr>
           </thead>
@@ -1064,7 +1088,7 @@ async function downloadRentalReceipt(rental) {
 
   const source = new DOMParser().parseFromString(buildReceiptHtml(rental), 'text/html');
   const receipt = document.createElement('div');
-  receipt.style.cssText = 'position:fixed;left:-10000px;top:0;width:148mm;background:#fff;z-index:-1;';
+  receipt.className = 'rental-receipt-render';
   const styles = source.head.querySelector('style');
   if (styles) receipt.appendChild(styles.cloneNode(true));
   receipt.append(...Array.from(source.body.children).map((child) => child.cloneNode(true)));
@@ -1671,7 +1695,11 @@ async function handleRestoreFile(event) {
 async function restoreRentalData(mode) {
   if (!pendingRestore?.items?.length) return;
   const count = pendingRestore.items.length;
-  const confirmed = confirm(t(mode === 'replace' ? 'confirmRestoreReplace' : 'confirmRestoreMerge', { count }));
+  const confirmed = await askAppConfirmation(
+    t('dialogConfirmTitle'),
+    t(mode === 'replace' ? 'confirmRestoreReplace' : 'confirmRestoreMerge', { count }),
+    { danger: mode === 'replace', confirmText: t('dialogConfirm'), cancelText: t('dialogCancel') },
+  );
   if (!confirmed) return;
 
   const imported = pendingRestore.items;
@@ -1819,19 +1847,25 @@ function notifyRemoteBookingChange(previousItems, nextItems) {
   }
 }
 
-function handleSubmit(e) {
+async function handleSubmit(e) {
   e.preventDefault();
   if (els.submitBtn?.disabled) return;
 
   const data = getFormData();
 
-  if (!data.customerName || !data.phoneNumber || !data.pickupDate || !data.returnDate) {
-    alert(t('alertRequiredFields'));
+  if (!data.customerName || !data.pickupDate || !data.returnDate) {
+    await showAppNotice(t('dialogErrorTitle'), t('alertRequiredFields'), { confirmText: t('dialogOK') });
+    return;
+  }
+
+  const phoneState = refreshPhoneValidation();
+  if (!phoneState.phoneValid || !phoneState.phone2Valid) {
+    (phoneState.phoneValid ? els.phoneNumber2 : els.phoneNumber)?.focus();
     return;
   }
 
   if (!data.blazers.length || data.blazers.some((b) => !b.blazerCode || !b.colorName)) {
-    alert(t('alertBlazerRequired'));
+    await showAppNotice(t('dialogErrorTitle'), t('alertBlazerRequired'), { confirmText: t('dialogOK') });
     return;
   }
 
@@ -1839,11 +1873,11 @@ function handleSubmit(e) {
     const total = data.totalPrice;
     const paid = data.advancePaid;
     if (paid <= 0) {
-      alert(t('alertAdvanceRequired'));
+      await showAppNotice(t('dialogErrorTitle'), t('alertAdvanceRequired'), { confirmText: t('dialogOK') });
       return;
     }
     if (paid >= total) {
-      alert(t('alertAdvanceTooMuch'));
+      await showAppNotice(t('dialogErrorTitle'), t('alertAdvanceTooMuch'), { confirmText: t('dialogOK') });
       return;
     }
   }
@@ -1872,7 +1906,7 @@ function handleSubmit(e) {
     });
 }
 
-function handleTableClick(e) {
+async function handleTableClick(e) {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
 
@@ -1959,7 +1993,7 @@ function handleTableClick(e) {
     closeDetailModal();
     populateForm(rental);
   } else if (action === 'delete') {
-    if (confirm(t('confirmDelete', { name: rental.customerName, code: formatBlazerCodes(rental) }))) {
+    if (await askAppConfirmation(t('dialogConfirmTitle'), t('confirmDelete', { name: rental.customerName, code: formatBlazerCodes(rental) }), { danger: true, confirmText: t('dialogDelete'), cancelText: t('dialogCancel') })) {
       setActionButtonLoading(btn, true);
       rentals = rentals.filter((r) => r.id !== id);
       saveRentals()
@@ -1989,6 +2023,16 @@ function initEventListeners() {
   });
 
   els.form.addEventListener('submit', handleSubmit);
+  els.phoneNumber?.addEventListener('input', refreshPhoneValidation);
+  els.phoneNumber2?.addEventListener('input', refreshPhoneValidation);
+  if (els.calendarTodayReminderToggle) {
+    els.calendarTodayReminderToggle.checked = allowTodayPickupReminder;
+    els.calendarTodayReminderToggle.addEventListener('change', (event) => {
+      allowTodayPickupReminder = event.target.checked;
+      localStorage.setItem('allowTodayPickupReminder', String(allowTodayPickupReminder));
+      renderCalendar();
+    });
+  }
   els.cancelEditBtn.addEventListener('click', () => {
     resetForm();
     setBookingFormVisible(false);
@@ -2198,7 +2242,7 @@ async function init() {
       hideAppLoading();
       setSyncState('error');
       if (!hasLoadedCloudData) {
-        alert(t('syncError'));
+        showToast(t('syncError'), 'error');
       }
     }
   );
