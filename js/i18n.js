@@ -276,7 +276,7 @@ const translations = {
     shareReceiptTitle: "Rental Receipt",
     shareReceiptText: "Rental receipt for {name}",
     shareReceiptWhatsAppText:
-      "Hello {name}, your rental receipt is ready. Please find the PDF attached.",
+      "Hello {name}, your rental e-receipt is ready. Please find the PDF attached.",
     shareBillWhatsAppText:
       "Hello {name}, your bill {number} is ready. Please find the PDF attached.",
     toastWhatsAppPhoneMissing:
@@ -657,7 +657,7 @@ const translations = {
     shareReceiptTitle: "උකස් රිසිට්",
     shareReceiptText: "{name} සඳහා උකස් රිසිට්",
     shareReceiptWhatsAppText:
-      "ආයුබෝවන් {name}, ඔබගේ කුලී රිසිට්පත සූදානම්. කරුණාකර PDF එක අමුණා ඇත.",
+      "ආයුබෝවන් {name}, ඔබගේ කුලී e-රිසිට්පත සූදානම්. කරුණාකර PDF එක අමුණා ඇත.",
     shareBillWhatsAppText:
       "ආයුබෝවන් {name}, ඔබගේ බිල් අංක {number} සූදානම්. කරුණාකර PDF එක අමුණා ඇත.",
     toastWhatsAppPhoneMissing:
