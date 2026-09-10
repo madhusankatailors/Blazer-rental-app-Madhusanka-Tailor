@@ -7,8 +7,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Shoe Sales & Stock | Madhusanka Tailors</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/shoe.css">
+  <link rel="manifest" href="manifest.webmanifest">
 </head>
 
 <body class="shoe-app min-h-screen bg-slate-50 text-slate-800">
@@ -33,6 +33,7 @@
         <a href="index.html" data-i18n="navRentals">Rentals</a>
         <a href="billing.html" data-i18n="navBilling">Billing</a>
         <a href="shoe.html" aria-current="page" data-i18n="navShoes">Shoes</a>
+        <a href="customers.html" data-i18n="navCustomers">Customers</a>
         <details class="app-settings">
           <summary aria-label="Settings" title="Settings"><span aria-hidden="true">&#9881;</span></summary>
           <div class="app-settings-menu">
@@ -137,7 +138,7 @@
           <div class="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <label class="shoe-field"><span>Customer Name</span><input id="saleCustomer" required
                 class="shoe-input"></label>
-            <label class="shoe-field"><span>Phone</span><input id="salePhone" type="tel" class="shoe-input"></label>
+            <label class="shoe-field"><span>Phone</span><input id="salePhone" type="tel" inputmode="numeric" maxlength="10" class="shoe-input"><p id="salePhoneMessage" class="phone-field-message" aria-live="polite"></p></label>
             <label class="shoe-field"><span>Sale Date</span><input id="saleDate" type="date" required class="shoe-input"></label>
             <label class="shoe-field"><span>Payment Type</span><select id="salePaymentType" required class="shoe-input">
                 <option value="FULL">Full Payment</option>
@@ -301,6 +302,8 @@
       <p id="actionLoadingText" class="mt-3 font-semibold">Saving…</p>
     </div>
   </div>
+  <script src="js/i18n.js"></script>
+  <script src="js/pwa.js"></script>
   <script type="module" src="js/shoe.js"></script>
 </body>
 

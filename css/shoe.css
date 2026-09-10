@@ -1,3 +1,50 @@
+@import url('./styles.css');
+
+/* Shoe operations use the same quiet, structured visual language as the other modules. */
+.shoe-app {
+    background: #f3f7f8;
+    color: #17323a;
+    font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+}
+
+.shoe-header {
+    background: linear-gradient(135deg, #0b3f4c, #0f5666 72%, #137789);
+    box-shadow: 0 8px 26px rgb(11 63 76 / 0.16);
+}
+
+.shoe-app .workspace-card,
+.shoe-app .shoe-stat,
+.shoe-app .report-panel,
+.shoe-app .shoe-row {
+    border-color: #d9e4e7;
+    box-shadow: 0 8px 24px rgb(15 63 76 / 0.06);
+}
+
+.shoe-app .shoe-stat:before {
+    background: #198397;
+}
+
+.shoe-app .shoe-tabs {
+    background: #f8fbfb;
+}
+
+.shoe-app .shoe-tab.active,
+.shoe-app .shoe-primary {
+    background: #0f5666;
+}
+
+.shoe-app .shoe-tab.active:hover,
+.shoe-app .shoe-primary:hover {
+    background: #0b3f4c;
+}
+
+.shoe-input:focus,
+.shoe-secondary:focus-visible,
+.shoe-primary:focus-visible {
+    outline: 3px solid rgb(14 165 182 / 0.22);
+    outline-offset: 2px;
+}
+
 :root {
     --ink: #13231d;
     --muted: #64748b;

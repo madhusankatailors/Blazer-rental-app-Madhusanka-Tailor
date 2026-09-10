@@ -1,0 +1,18 @@
+{
+  "name": "Madhusanka Tailors Management",
+  "short_name": "Madhusanka Tailors",
+  "description": "Blazer rentals, billing, and shoe stock management.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f7f8",
+  "theme_color": "#0b3f4c",
+  "icons": [
+    {
+      "src": "assets/madhusanka-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

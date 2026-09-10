@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <base href="./" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Customers | Madhusanka Tailors</title>
+    <link rel="stylesheet" href="css/customers.css" />
+    <link rel="manifest" href="manifest.webmanifest" />
+  </head>
+  <body class="customers-page">
+    <header class="customers-header">
+      <div class="customers-shell customers-header-inner">
+        <div>
+          <h1 class="customers-title" data-i18n="customersTitle">
+            Customer Profiles
+          </h1>
+          <p class="customers-subtitle" data-i18n="customersSubtitle">
+            Rentals, bills, shoe sales, and payments in one view
+          </p>
+        </div>
+        <nav class="app-module-nav" aria-label="Application sections">
+          <a href="index.html" data-i18n="navRentals">Rentals</a>
+          <a href="billing.html" data-i18n="navBilling">Billing</a>
+          <a href="shoe.html" data-i18n="navShoes">Shoes</a>
+          <a href="customers.html" aria-current="page" data-i18n="navCustomers"
+            >Customers</a
+          >
+          <details class="app-settings">
+            <summary aria-label="Settings" title="Settings">
+              <span aria-hidden="true">&#9881;</span>
+            </summary>
+            <div class="app-settings-menu">
+              <div
+                class="inline-flex rounded-lg bg-slate-100 p-1 gap-1"
+                role="group"
+                aria-label="Language"
+              >
+                <button type="button" id="langEn" data-i18n="langEnglish">
+                  English
+                </button>
+                <button type="button" id="langSi" data-i18n="langSinhala">
+                  සිංහල
+                </button>
+              </div>
+              <button
+                type="button"
+                id="logoutBtn"
+                class="app-settings-logout"
+                data-i18n="btnLogout"
+              >
+                Logout
+              </button>
+            </div>
+          </details>
+        </nav>
+      </div>
+    </header>
+
+    <main class="customers-shell customers-main">
+      <section class="customers-toolbar">
+        <div>
+          <h2 class="text-lg font-bold" data-i18n="customersDirectory">
+            Customer Directory
+          </h2>
+          <p
+            class="mt-1 text-sm text-slate-500"
+            data-i18n="customersDirectoryHint"
+          >
+            Search by name, phone, or customer ID.
+          </p>
+        </div>
+        <input
+          id="customerSearch"
+          class="customers-search"
+          type="search"
+          data-i18n-placeholder="customersSearchPlaceholder"
+          placeholder="Search customers..."
+        />
+      </section>
+
+      <section class="customers-filters" aria-label="Customer filters">
+        <label
+          ><span data-i18n="customersFromDate">From date</span
+          ><input id="customerDateFrom" type="date"
+        /></label>
+        <label
+          ><span data-i18n="customersToDate">To date</span
+          ><input id="customerDateTo" type="date"
+        /></label>
+        <label
+          ><span data-i18n="customersRecordType">Record type</span
+          ><select id="customerTypeFilter">
+            <option value="all" data-i18n="customersAllRecords">
+              All records
+            </option>
+            <option value="rental" data-i18n="customersRental">Rental</option>
+            <option value="bill" data-i18n="customersBill">Bill</option>
+            <option value="sale" data-i18n="customersShoeSale">
+              Shoe sale
+            </option>
+          </select></label
+        >
+        <label
+          ><span data-i18n="customersBalanceFilter">Balance</span
+          ><select id="customerBalanceFilter">
+            <option value="all" data-i18n="customersAllBalances">
+              All balances
+            </option>
+            <option value="due" data-i18n="customersBalanceDue">
+              Balance due
+            </option>
+            <option value="paid" data-i18n="customersPaidInFull">
+              Paid in full
+            </option>
+          </select></label
+        >
+        <label
+          ><span data-i18n="customersSortBy">Sort by</span
+          ><select id="customerSort">
+            <option value="activity" data-i18n="customersLatestActivity">
+              Latest activity
+            </option>
+            <option value="name" data-i18n="customersName">Name</option>
+            <option value="balance" data-i18n="customersHighestBalance">
+              Highest balance
+            </option>
+          </select></label
+        >
+        <button
+          id="customerClearFilters"
+          class="customers-clear-filters"
+          type="button"
+          data-i18n="customersClearFilters"
+        >
+          Clear filters
+        </button>
+      </section>
+
+      <section class="customer-summary" aria-label="Customer summary">
+        <div class="customer-summary-card">
+          <span data-i18n="customersTotal">Customers</span
+          ><strong id="customerTotal">0</strong>
+        </div>
+        <div class="customer-summary-card">
+          <span data-i18n="customersWithRentals">With rentals</span
+          ><strong id="customerRentalTotal">0</strong>
+        </div>
+        <div class="customer-summary-card">
+          <span data-i18n="customersOutstanding">Outstanding</span
+          ><strong id="customerOutstanding">Rs. 0</strong>
+        </div>
+      </section>
+
+      <section
+        id="customerList"
+        class="customer-list"
+        aria-live="polite"
+      ></section>
+      <nav
+        id="customerPagination"
+        class="customer-pagination"
+        aria-label="Customer list pages"
+      ></nav>
+    </main>
+
+    <div
+      id="customerDetailModal"
+      class="customer-detail-modal"
+      aria-hidden="true"
+    >
+      <div class="customer-detail-backdrop" data-customer-action="close"></div>
+      <section
+        class="customer-detail-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="customerDetailName"
+      >
+        <button
+          type="button"
+          class="customer-detail-close"
+          data-customer-action="close"
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <div id="customerDetailContent"></div>
+      </section>
+    </div>
+
+    <script src="js/i18n.js"></script>
+    <script src="js/pwa.js"></script>
+    <script type="module" src="js/customers.js"></script>
+  </body>
+</html>
