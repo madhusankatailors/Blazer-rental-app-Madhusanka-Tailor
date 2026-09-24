@@ -253,28 +253,6 @@
               data-i18n-placeholder="placeholderFullName" placeholder="Full name" />
           </div>
 
-          <div>
-            <div class="flex items-center justify-between gap-2 mb-1">
-              <label for="phoneNumber" class="block text-sm font-medium text-slate-700"
-                data-i18n="labelPhoneNumber">Phone Number</label>
-              <button type="button" id="phoneNumber2Toggle"
-                class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-brand-300 bg-brand-50 text-brand-700 text-lg leading-none hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                aria-expanded="false" aria-controls="phoneNumber2Wrap" title="Add another phone number">+</button>
-            </div>
-            <input type="tel" id="phoneNumber" inputmode="numeric" maxlength="10"
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-              placeholder="07X XXX XXXX" />
-            <p id="phoneNumberMessage" class="phone-field-message" aria-live="polite"></p>
-            <div id="phoneNumber2Wrap" class="hidden mt-2">
-              <label for="phoneNumber2" class="block text-xs font-medium text-slate-600 mb-1"
-                data-i18n="labelPhoneNumber2">Second Phone Number</label>
-              <input type="tel" id="phoneNumber2" inputmode="numeric" maxlength="10"
-                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                placeholder="07X XXX XXXX" />
-              <p id="phoneNumber2Message" class="phone-field-message" aria-live="polite"></p>
-            </div>
-          </div>
-
           <div class="sm:col-span-2 lg:col-span-3">
             <div class="flex items-center justify-between gap-3 mb-2">
               <span class="block text-sm font-medium text-slate-700" data-i18n="labelBlazers">Blazers</span>
@@ -355,6 +333,28 @@
               <div id="balanceSummary"
                 class="rounded-lg border border-slate-200 bg-white px-3 py-2 min-h-[2.75rem] flex flex-col justify-center">
               </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <label for="phoneNumber" class="block text-sm font-medium text-slate-700"
+                data-i18n="labelPhoneNumber">Phone Number</label>
+              <button type="button" id="phoneNumber2Toggle"
+                class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-brand-300 bg-brand-50 text-brand-700 text-lg leading-none hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                aria-expanded="false" aria-controls="phoneNumber2Wrap" title="Add another phone number">+</button>
+            </div>
+            <input type="tel" id="phoneNumber" inputmode="numeric" maxlength="10"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              placeholder="07X XXX XXXX" />
+            <p id="phoneNumberMessage" class="phone-field-message" aria-live="polite"></p>
+            <div id="phoneNumber2Wrap" class="hidden mt-2">
+              <label for="phoneNumber2" class="block text-xs font-medium text-slate-600 mb-1"
+                data-i18n="labelPhoneNumber2">Second Phone Number</label>
+              <input type="tel" id="phoneNumber2" inputmode="numeric" maxlength="10"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                placeholder="07X XXX XXXX" />
+              <p id="phoneNumber2Message" class="phone-field-message" aria-live="polite"></p>
             </div>
           </div>
 
