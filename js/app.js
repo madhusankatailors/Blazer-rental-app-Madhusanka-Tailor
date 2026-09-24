@@ -222,16 +222,16 @@ function createBlazerRow(data = {}) {
   row.dataset.rowId = rowId;
   row.innerHTML = `
     <div class="sm:col-span-3">
-      <label class="block text-xs font-medium text-slate-600 mb-1">${escapeHtml(t('labelBlazerCode'))}</label>
-      <input type="text" data-field="blazerCode" required
-        class="blazer-code w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-        placeholder="${escapeHtml(t('placeholderBlazerCode'))}" value="${escapeHtml(data.blazerCode || '')}" />
-    </div>
-    <div class="sm:col-span-3">
       <label class="block text-xs font-medium text-slate-600 mb-1">${escapeHtml(t('labelColorName'))}</label>
       <input type="text" data-field="colorName" required
         class="blazer-color w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
         placeholder="${escapeHtml(t('placeholderColorName'))}" value="${escapeHtml(data.colorName || '')}" />
+    </div>
+    <div class="sm:col-span-3">
+      <label class="block text-xs font-medium text-slate-600 mb-1">${escapeHtml(t('labelBlazerCode'))}</label>
+      <input type="text" data-field="blazerCode" required
+        class="blazer-code w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+        placeholder="${escapeHtml(t('placeholderBlazerCode'))}" value="${escapeHtml(data.blazerCode || '')}" />
     </div>
     <div class="sm:col-span-5">
       <span class="block text-xs font-medium text-slate-600 mb-1">${escapeHtml(t('labelColorType'))}</span>
