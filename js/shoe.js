@@ -272,8 +272,9 @@ function openQuickSale(shoeId) {
   }
 
   $("saleQty").value = "1";
-  $("salePrice").value = "3600";
+  $("salePrice").value = "3950";
   $("saleCustomPrice").value = "";
+  autoFillShoeSalePrice();
   $("saleDate").value = new Date().toLocaleDateString("en-CA");
   toggleCustomPrice();
   toast("Quick sale loaded for this item.");
@@ -283,7 +284,8 @@ function renderStock() {
     name = $("stockNameFilter").value,
     size = $("stockSizeFilter").value,
     color = $("stockColorFilter").value,
-    hasFilters = Boolean(q || name || size || color);
+    hasFilters = Boolean(q || name || size || color),
+    showSoldOut = $("showOutOfStock")?.checked === true;
   const filtered = [...shoes]
     .sort((a, b) =>
       String(a.code || "").localeCompare(String(b.code || ""), undefined, {
@@ -292,6 +294,7 @@ function renderStock() {
     )
     .filter(
       (x) =>
+        (showSoldOut || Number(x.quantity || 0) > 0) &&
         (!q ||
           String(x.code || "")
             .toLowerCase()
@@ -334,7 +337,7 @@ function renderStock() {
       return `<article class="stock-group"><button class="stock-group-head" data-toggle-code="${esc(g.key)}" type="button"><div class="shoe-image-placeholder">${esc(g.code || "SH")}</div><div class="min-w-0 text-left"><h3 class="font-bold">Code ${esc(g.code)}</h3><p class="text-xs text-slate-500">${esc([...g.names].join(", "))} · ${g.items.length} variants · ${colours} colours · ${sizes} sizes</p></div><span class="stock-pill ${total < 3 ? "low" : ""}">${total} total</span><span class="expand-icon">${open ? "−" : "+"}</span></button><div class="stock-variants ${open ? "" : "hidden"}">${g.items.map((x) => `<div class="stock-variant"><div class="stock-variant-info"><div class="stock-variant-topline">${colourBadge(x.color)}<span class="stock-size-badge">Size ${esc(x.size)}</span></div><small>${Number(x.quantity)} left · ${money(Number(x.buyingPrice || 0))} cost</small></div><div class="variant-actions"><button class="shoe-secondary" data-quick-sale="${x.id}" type="button">Quick Sale</button><button class="shoe-secondary" data-edit-shoe="${x.id}" type="button">Edit</button><button class="shoe-secondary danger" data-delete-shoe="${x.id}" type="button">Delete</button></div></div>`).join("")}</div></article>`;
     })
     .join("");
-  $("stockEmpty").hidden = rows.length > 0 || allGroups.length > 0;
+  $("stockEmpty").hidden = allGroups.length > 0;
   $("stockPagination").innerHTML =
     pages > 1
       ? `<div class="flex items-center gap-2"><button class="shoe-secondary" data-stock-page="${stockPage - 1}" ${stockPage === 1 ? "disabled" : ""}>Prev</button><b>${stockPage} / ${pages}</b><button class="shoe-secondary" data-stock-page="${stockPage + 1}" ${stockPage === pages ? "disabled" : ""}>Next</button></div>`
@@ -377,6 +380,26 @@ function renderSelectors() {
       )
       .join("");
   if (matches.some((x) => x.id === oldShoe)) $("saleShoe").value = oldShoe;
+}
+// Older stock documents do not have sellingPrice. Preserve existing items and
+// use an explicit, editable default; no database migration is required.
+function suggestedSellingPrice(buying) {
+  const n = Number(buying);
+  if (n === 2000) return 3950;
+  if (n === 3200) return 5600;
+  if (n === 3500) return 5800;
+  return Number.isFinite(n) && n > 0 ? Math.round((n + 1950) * 100) / 100 : 3950;
+}
+function autoFillShoeSalePrice() {
+  const shoe = shoeById($("saleShoe").value);
+  if (!shoe) return;
+  const candidate = Number(shoe.sellingPrice);
+  const chosen = Number.isFinite(candidate) && candidate > 0
+    ? candidate : suggestedSellingPrice(shoe.buyingPrice);
+  const option = [...$("salePrice").options].find(x => x.value !== "CUSTOM" && Number(x.value) === chosen);
+  $("salePrice").value = option ? option.value : "CUSTOM";
+  $("saleCustomPrice").value = option ? "" : String(chosen);
+  toggleCustomPrice();
 }
 function chosenPrice() {
   return $("salePrice").value === "CUSTOM"
@@ -429,7 +452,7 @@ function addToCart() {
   $("saleSize").value = "";
   $("saleShoe").value = "";
   $("saleQty").value = "1";
-  $("salePrice").value = "3600";
+  $("salePrice").value = "3950";
   $("saleCustomPrice").value = "";
   toggleCustomPrice();
   renderSelectors();
@@ -467,7 +490,7 @@ function saleRow(s, pending = false) {
       )
       .join('<span class="item-separator">•</span>'),
     bal = balance(s);
-  return `<article class="shoe-row clickable ${s.returned ? "returned" : ""}" data-sale-detail="${s.id}" tabindex="0" role="button"><div class="flex flex-col gap-3 sm:flex-row sm:justify-between"><div><div class="flex items-center gap-2"><h3 class="font-bold">${esc(s.customerName)}</h3>${s.returned ? '<span class="return-pill">Returned</span>' : ""}</div><div class="sale-items">${desc}</div><p class="text-xs text-slate-500">${esc(s.customerPhone || "No phone")} · ${dateText(s.saleDate)}</p></div><div class="sm:text-right"><b>${money(s.totalAmount)}</b>${s.returned ? '<p class="text-xs text-slate-500">Stock restored</p>' : `<p class="text-xs ${bal ? "text-amber-700" : "text-emerald-700"}">Paid ${money(s.paidAmount)} · Balance ${money(bal)}</p>`}<p class="mt-1 text-xs font-semibold text-emerald-700">Click to view details →</p><div class="sale-card-actions">${pending && !s.returned ? `<button class="shoe-primary" data-add-payment="${s.id}">Add Payment</button>` : ""}${!s.returned ? `<button class="shoe-secondary" data-return-sale="${s.id}">Return to Stock</button>` : ""}<button class="shoe-secondary danger" data-delete-sale="${s.id}">Delete Record</button></div></div></div></article>`;
+  return `<article class="shoe-row clickable ${s.returned ? "returned" : ""}" data-sale-detail="${s.id}" tabindex="0" role="button"><div class="flex flex-col gap-3 sm:flex-row sm:justify-between"><div><div class="flex items-center gap-2"><h3 class="font-bold">${esc(s.customerName)}</h3>${s.returned ? '<span class="return-pill">Returned</span>' : ""}</div><div class="sale-items">${desc}</div><p class="text-xs text-slate-500">${esc(s.customerPhone || "No phone")} · ${dateText(s.saleDate)}</p></div><div class="sm:text-right"><b>${money(s.totalAmount)}</b>${s.returned ? '<p class="text-xs text-slate-500">Stock restored</p>' : `<p class="text-xs ${bal ? "text-amber-700" : "text-emerald-700"}">Paid ${money(s.paidAmount)} · Balance ${money(bal)}</p>`}<p class="mt-1 text-xs font-semibold text-emerald-700">Click to view details →</p><div class="sale-card-actions">${pending && !s.returned ? `<button class="shoe-primary" data-add-payment="${s.id}">Collect Full Balance</button>` : ""}${!s.returned ? `<button class="shoe-secondary" data-return-sale="${s.id}">Return to Stock</button>` : ""}</div></div></div></article>`;
 }
 function renderSales() {
   const q = $("salesSearch").value.trim().toLowerCase(),
@@ -963,6 +986,7 @@ function openShoe(shoe = null) {
     preset = [2000, 3200, 3500].includes(price);
   $("shoeBuying").value = preset ? String(price) : "CUSTOM";
   $("shoeCustomBuying").value = preset ? "" : price;
+  $("shoeSelling").value = Number(shoe?.sellingPrice) > 0 ? shoe.sellingPrice : suggestedSellingPrice(price);
   toggleCustomBuying();
   $("shoeNote").value = shoe?.note || "";
   $("shoeDialog").showModal();
@@ -970,7 +994,10 @@ function openShoe(shoe = null) {
 async function saveShoe(e) {
   e.preventDefault();
   const id = $("shoeId").value,
-    buyingPrice = selectedBuyingPrice();
+    buyingPrice = selectedBuyingPrice(),
+    sellingPrice = Number($("shoeSelling").value);
+  if (!Number.isFinite(sellingPrice) || sellingPrice <= 0)
+    return toast("Enter a valid default selling price.", true);
   if (!Number.isFinite(buyingPrice) || buyingPrice <= 0)
     return toast("Enter a valid buying price.", true);
   const p = {
@@ -980,6 +1007,7 @@ async function saveShoe(e) {
     color: $("shoeColor").value,
     quantity: Number($("shoeQuantity").value),
     buyingPrice,
+    sellingPrice,
     note: $("shoeNote").value.trim(),
     updatedAt: serverTimestamp(),
   };
@@ -1146,139 +1174,78 @@ async function recordSale(e) {
     busy(false);
   }
 }
+const collectingSaleIds = new Set();
 async function addPayment(id) {
+  if (collectingSaleIds.has(id)) return;
   const sale = sales.find((x) => x.id === id);
-  if (!sale) return;
-  const bal = balance(sale),
-    raw = await showAppDialog({
-      title: "Collect payment",
-      message: `Cash received. Balance is ${money(bal)}. Enter collected amount:`,
-      input: { type: "number" },
-      confirmText: "Save payment",
-      cancelText: "Cancel",
-      showCancel: true,
-    });
-  if (raw === false) return;
-  const amount = Number(raw);
-  if (!Number.isFinite(amount) || amount <= 0)
-    return toast("Enter a valid payment amount.", true);
+  if (!sale || sale.returned) return toast("This sale cannot collect a payment.", true);
+  const due = balance(sale);
+  if (!(due > 0)) return toast("This sale is already fully paid.");
+  if (!navigator.onLine) return toast("Connect to the internet to collect the balance safely.", true);
+  const confirmed = await askAppConfirmation(
+    "Collect full shoe balance",
+    `Confirm you received ${money(due)} from ${sale.customerName || "customer"}? The entire outstanding amount will be marked paid.`,
+    { confirmText: "Yes, balance received", cancelText: "Cancel" }
+  );
+  if (!confirmed || collectingSaleIds.has(id)) return;
+  collectingSaleIds.add(id);
   try {
-    busy(true, "Updating payment…");
-    const next = Number(sale.paidAmount) + amount,
-      saleRef = doc(db, "shoeSales", id),
-      paymentRef = doc(collection(db, "shoePayments")),
-      batch = writeBatch(db);
-    batch.update(saleRef, {
-      paidAmount: next,
-      balanceAmount: Math.max(0, Number(sale.totalAmount) - next),
-      paymentStatus: next >= Number(sale.totalAmount) ? "PAID" : "PARTIAL",
-      paymentType:
-        next >= Number(sale.totalAmount)
-          ? "FULL"
-          : sale.paymentType || "ADVANCE",
-      paymentMethod: "CASH",
-      updatedAt: serverTimestamp(),
+    busy(true, "Confirming full payment…");
+    await runTransaction(db, async (transaction) => {
+      const saleRef = doc(db, "shoeSales", id);
+      const currentSnapshot = await transaction.get(saleRef);
+      if (!currentSnapshot.exists()) throw new Error("Sale no longer exists.");
+      const current = currentSnapshot.data();
+      if (current.returned) throw new Error("Returned sale cannot receive payment.");
+      const remaining = Math.round((Number(current.totalAmount) - Number(current.paidAmount || 0)) * 100) / 100;
+      if (!Number.isFinite(remaining) || remaining <= 0) throw new Error("Balance already received. Refresh sales.");
+      const total = Number(current.totalAmount);
+      const paymentRef = doc(collection(db, "shoePayments"));
+      transaction.update(saleRef, {
+        paidAmount: total,
+        balanceAmount: 0,
+        paymentStatus: "PAID",
+        paymentType: "FULL",
+        paymentMethod: "CASH",
+        updatedAt: serverTimestamp(),
+      });
+      transaction.set(paymentRef, {
+        saleId: id,
+        paymentAmount: remaining,
+        paymentMethod: "CASH",
+        paymentDate: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+      });
     });
-    batch.set(paymentRef, {
-      saleId: id,
-      paymentAmount: amount,
-      paymentMethod: "CASH",
-      paymentDate: new Date().toISOString(),
-      createdAt: serverTimestamp(),
-    });
-    await batch.commit();
-    renderAll();
-    toast("Cash received and pending balance updated.");
+    toast("Full shoe balance received and saved.");
   } catch (err) {
-    toast(err.message || "Could not update payment.", true);
+    toast(err.message || "Could not collect payment. Please retry.", true);
   } finally {
+    collectingSaleIds.delete(id);
     busy(false);
   }
 }
 async function removeShoe(id) {
   const shoe = shoeById(id);
   if (!shoe) return;
-  const referencedSales = sales.filter(
-    (s) =>
-      !s.returned && itemsOf(s).some((item) => stockMatchesItem(shoe, item)),
-  );
-  if (
-    !(await askAppConfirmation(
-      "Delete shoe stock",
-      `Delete ${shoe.name} ${shoe.code}?`,
-      { danger: true, confirmText: "Delete", cancelText: "Cancel" },
-    ))
-  )
-    return;
-  if (referencedSales.length) {
-    const proceed = await askAppConfirmation(
-      "Delete linked sales",
-      `This exact stock record (${shoe.code} / ${shoe.color} / size ${shoe.size}) is linked to ${referencedSales.length} active sale(s). Delete the stock and also delete those matching sale records?`,
-      { danger: true, confirmText: "Delete all", cancelText: "Cancel" },
-    );
-    if (!proceed)
-      return toast(
-        "Delete cancelled. Return the sale or delete it first.",
-        true,
-      );
-    try {
-      busy(true, "Removing stock and sales…");
-      const batch = writeBatch(db);
-      batch.delete(doc(db, "shoes", id));
-      referencedSales.forEach((sale) => {
-        batch.delete(doc(db, "shoeSales", sale.id));
-        payments
-          .filter((p) => p.saleId === sale.id)
-          .forEach((p) => batch.delete(doc(db, "shoePayments", p.id)));
-      });
-      await batch.commit();
-      toast("Stock and linked sales removed.");
-    } catch (err) {
-      toast(err.message || "Could not delete this stock and its sales.", true);
-    } finally {
-      busy(false);
-    }
-    return;
+  // Any sale (including returned records) is valuable accounting history.
+  const referenced = sales.filter(s => itemsOf(s).some(item => item.shoeId === id || stockMatchesItem(shoe, item)));
+  if (referenced.length) {
+    return toast(`Cannot delete this shoe: ${referenced.length} linked sale(s). Set quantity to 0 instead to hide it without losing history.`, true);
   }
+  if (!(await askAppConfirmation('Delete unused shoe', `Delete ${shoe.name} ${shoe.code}? Only unsold shoe stock can be deleted.`, {
+    danger: true, confirmText: 'Delete unused stock', cancelText: 'Cancel'
+  }))) return;
   try {
-    busy(true, "Deleting shoe…");
-    await deleteDoc(doc(db, "shoes", id));
-    toast("Shoe deleted.");
-  } catch (err) {
-    toast(err.message || "Could not delete shoe.", true);
-  } finally {
-    busy(false);
-  }
+    busy(true, 'Deleting unused shoe…');
+    await deleteDoc(doc(db, 'shoes', id));
+    toast('Unused shoe stock deleted.');
+  } catch (err) { toast(err.message || 'Could not delete shoe.', true); }
+  finally { busy(false); }
 }
 async function deleteSaleRecord(id) {
-  const sale = sales.find((x) => x.id === id);
-  if (!sale) return;
-  const warning = sale.returned
-    ? "Delete this returned sale record permanently?"
-    : "Delete this sale record permanently? Stock will NOT be returned. Use Return to Stock first if the customer returned the shoes.";
-  if (
-    !(await askAppConfirmation("Delete sale record", warning, {
-      danger: true,
-      confirmText: "Delete",
-      cancelText: "Cancel",
-    }))
-  )
-    return;
-  try {
-    busy(true, "Deleting sale record…");
-    const batch = writeBatch(db);
-    batch.delete(doc(db, "shoeSales", id));
-    payments
-      .filter((x) => x.saleId === id)
-      .forEach((x) => batch.delete(doc(db, "shoePayments", x.id)));
-    await batch.commit();
-    $("saleDetailDialog")?.close();
-    toast("Sale record deleted.");
-  } catch (err) {
-    toast(err.message || "Could not delete this sale record.", true);
-  } finally {
-    busy(false);
-  }
+  // Protect payment and accounting history. A return should be handled through Return to Stock.
+  toast('Sales and payment history are protected. Use Return to Stock when a customer returns shoes; records are kept for reports.', true);
 }
 function subscribe() {
   [
@@ -1302,6 +1269,7 @@ function subscribe() {
   );
 }
 
+$("showOutOfStock")?.addEventListener("change", () => { stockPage = 1; renderStock(); });
 document.addEventListener("click", (e) => {
   const tab = e.target.closest("[data-view]");
   if (tab) activateView(tab.dataset.view);
@@ -1391,6 +1359,14 @@ $("saleSize").addEventListener("change", () => {
   renderSelectors();
 });
 $("salePrice").addEventListener("change", toggleCustomPrice);
+$("saleShoe").addEventListener("change", autoFillShoeSalePrice);
+$("shoeBuying").addEventListener("change", () => {
+  toggleCustomBuying();
+  $("shoeSelling").value = suggestedSellingPrice(selectedBuyingPrice());
+});
+$("shoeCustomBuying").addEventListener("input", () => {
+  $("shoeSelling").value = suggestedSellingPrice(selectedBuyingPrice());
+});
 $("salePaymentType").addEventListener("change", paymentPreview);
 $("salePaid").addEventListener("input", paymentPreview);
 $("copySupplierBtn").addEventListener("click", copySupplier);
