@@ -1,5 +1,5 @@
 import { requireAuth, logout } from "./auth.js";
-import { subscribeBills, saveBills as persistBills } from "./storage.js";
+import { subscribeBills, saveBills as persistBills, deleteBillRecord } from "./storage.js";
 import {
   isValidPhoneNumber,
   updatePhoneFieldState,
@@ -170,24 +170,63 @@ function getWhatsAppNumber(phone) {
   return digits;
 }
 
-function shareBillOnWhatsApp() {
+async function shareBillOnWhatsApp() {
   if (!currentPreviewBill) return;
-
-  const number = getWhatsAppNumber(currentPreviewBill.phone);
-  if (!number) {
-    showToast(t("toastWhatsAppPhoneMissing"), "error");
+  if (!window.html2canvas || !window.jspdf?.jsPDF) {
+    showToast(t("toastPdfUnavailable"), "error");
     return;
   }
-
+  const number = getWhatsAppNumber(currentPreviewBill.phone);
   const message = t("shareBillWhatsAppText", {
     name: currentPreviewBill.customerName || "",
     number: currentPreviewBill.billNo || "",
   });
-  window.open(
-    `https://wa.me/${number}?text=${encodeURIComponent(message)}`,
-    "_blank",
-    "noopener",
-  );
+  const button = els.whatsappBtn;
+  if (button?.disabled) return;
+  const originalText = button?.textContent;
+  if (button) { button.disabled = true; button.textContent = "Preparing PDF…"; }
+  const originalTransform = els.paper.style.transform;
+  const previousWidth = els.paperStage?.style.width || "";
+  const previousHeight = els.paperStage?.style.height || "";
+  try {
+    els.paper.style.transform = "none";
+    if (els.paperStage) {
+      els.paperStage.style.width = `${els.paper.offsetWidth}px`;
+      els.paperStage.style.height = `${els.paper.offsetHeight}px`;
+    }
+    const canvas = await window.html2canvas(els.paper, {
+      scale: 2.4, backgroundColor: "#fff", useCORS: true, scrollX: 0, scrollY: 0,
+    });
+    const pdf = new window.jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: [148, 210] });
+    pdf.addImage(canvas.toDataURL("image/jpeg", .97), "JPEG", 0, 0, 148, 210);
+    const filename = `madhusanka-tailors-bill-${String(currentPreviewBill.billNo || "bill").replace(/[^a-z0-9_-]+/gi, "-")}.pdf`;
+    const blob = pdf.output("blob");
+    const file = new File([blob], filename, { type: "application/pdf" });
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "Madhusanka Tailors Bill", text: message });
+        showToast("PDF shared. Choose WhatsApp and the customer in your device share sheet.", "success");
+        return;
+      } catch (err) {
+        if (err?.name === "AbortError") return;
+      }
+    }
+    // Desktop browsers cannot programmatically insert a local PDF in wa.me.
+    // Never download the PDF silently and pretend the attachment was sent.
+    if (number) window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, "_blank", "noopener");
+    showToast("This browser cannot attach PDFs directly to WhatsApp. Use the PDF button to download it and attach it manually, or use Share on a supported phone.", "error");
+  } catch (err) {
+    console.error(err);
+    showToast(t("toastPdfUnavailable"), "error");
+  } finally {
+    els.paper.style.transform = originalTransform;
+    if (els.paperStage) {
+      els.paperStage.style.width = previousWidth;
+      els.paperStage.style.height = previousHeight;
+    }
+    refreshPreviewFit();
+    if (button) { button.disabled = false; button.textContent = originalText; }
+  }
 }
 
 function getLocaleSafe() {
@@ -1553,7 +1592,7 @@ async function deleteBill(id) {
   bills = bills.filter((item) => item.id !== id);
 
   try {
-    await persistCurrentBills();
+    await deleteBillRecord(id);
     if (currentBillId === id) resetForm();
     if (currentPreviewBill?.id === id) closePreview();
     showToast(t("billingToastDeleted"), "success");

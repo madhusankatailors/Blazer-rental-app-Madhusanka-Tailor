@@ -1,5 +1,5 @@
 import { requireAuth, logout } from './auth.js';
-import { subscribeRentals, saveRentals as persistRentals, updateRentalStatus } from './storage.js';
+import { subscribeRentals, saveRentals as persistRentals, updateRentalStatus, deleteRentalRecord } from './storage.js';
 import { updatePhoneFieldState } from './phone-validation.js';
 import { askAppConfirmation, showAppNotice } from './ui-dialog.js';
 
@@ -839,15 +839,10 @@ function getWhatsAppNumber(phone) {
   return digits;
 }
 
-function openReceiptWhatsApp(rental) {
-  const number = getWhatsAppNumber(rental.phoneNumber);
-  if (!number) {
-    showToast(t('toastWhatsAppPhoneMissing'), 'error');
-    return;
-  }
-
-  const message = t('shareReceiptWhatsAppText', { name: rental.customerName || '' });
-  window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+async function openReceiptWhatsApp(rental) {
+  // Generate the same PDF as the Download receipt action and open the
+  // operating-system file-share chooser when supported.
+  return downloadRentalReceipt(rental, { shareOnly: true });
 }
 
 function dateToISO(date) {
@@ -1080,7 +1075,7 @@ function buildReceiptHtml(rental) {
     </html>`;
 }
 
-async function downloadRentalReceipt(rental) {
+async function downloadRentalReceipt(rental, { shareOnly = false } = {}) {
   if (!window.html2canvas || !window.jspdf?.jsPDF) {
     showToast(t('toastPdfUnavailable'), 'error');
     return;
@@ -1129,6 +1124,13 @@ async function downloadRentalReceipt(rental) {
       }
     }
 
+    if (shareOnly) {
+      const number = getWhatsAppNumber(rental.phoneNumber);
+      const message = t('shareReceiptWhatsAppText', { name: rental.customerName || '' });
+      if (number) window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+      showToast('This browser cannot attach PDFs directly to WhatsApp. Open the receipt PDF from Download on desktop, or use a phone that supports file sharing.', 'error');
+      return;
+    }
     const url = URL.createObjectURL(pdfBlob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -1705,7 +1707,10 @@ async function restoreRentalData(mode) {
   const imported = pendingRestore.items;
   const previousRentals = rentals;
   if (mode === 'replace') {
-    rentals = imported;
+    // Safety-first: preserve existing records rather than bulk deleting them from a backup import.
+    const byId = new Map(rentals.map(item => [item.id, item]));
+    imported.forEach(item => byId.set(item.id, item));
+    rentals = [...byId.values()];
   } else {
     const byId = new Map(rentals.map((item) => [item.id, item]));
     imported.forEach((item) => byId.set(item.id, item));
@@ -1995,14 +2000,16 @@ async function handleTableClick(e) {
   } else if (action === 'delete') {
     if (await askAppConfirmation(t('dialogConfirmTitle'), t('confirmDelete', { name: rental.customerName, code: formatBlazerCodes(rental) }), { danger: true, confirmText: t('dialogDelete'), cancelText: t('dialogCancel') })) {
       setActionButtonLoading(btn, true);
+      const beforeDelete = rentals;
       rentals = rentals.filter((r) => r.id !== id);
-      saveRentals()
+      deleteRentalRecord(id)
         .then(() => {
           showToast(t('toastBookingDeleted'), 'success');
           if (els.editId.value === id) resetForm();
           closeDetailModal();
         })
         .catch(() => {
+          rentals = beforeDelete;
           setActionButtonLoading(btn, false);
           showToast(t('toastSyncError'), 'error');
         });

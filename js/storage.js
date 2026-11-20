@@ -96,7 +96,7 @@ async function synchronize(collectionName, items, cache, prefix) {
   const operations = normalized
     .filter((item) => comparable(item) !== comparable(cache.get(item.id) || {}))
     .map((item) => ({ type: 'set', ref: doc(db, collectionName, item.id), data: { ...item, updatedAt: serverTimestamp() } }));
-  cache.forEach((_, id) => { if (!ids.has(id)) operations.push({ type: 'delete', ref: doc(db, collectionName, id) }); });
+  // Never infer cloud deletions from an incomplete/stale UI array. Explicit delete APIs below handle intentional deletion.
   await commitOperations(operations);
   cache.clear();
   normalized.forEach((item) => cache.set(item.id, item));
@@ -146,4 +146,29 @@ export function saveBills(items) {
   try { ensureReady(); } catch (error) { return Promise.reject(error); }
   billQueue = billQueue.then(() => synchronize(BILL_RECORDS, items, billCache, 'bill'));
   return billQueue;
+}
+
+// Explicit deletions: called only after the application's user confirmation.
+// Do not infer deletions from snapshot/cache differences.
+export async function deleteRentalRecord(id) {
+  ensureReady();
+  if (!navigator.onLine) throw new Error('Connect to the internet before deleting a rental.');
+  const reference = doc(db, RENTAL_RECORDS, String(id).replaceAll('/', '-'));
+  await runTransaction(db, async transaction => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists()) throw new Error('Rental no longer exists. Refresh.');
+    transaction.delete(reference);
+  });
+  rentalCache.delete(String(id));
+}
+export async function deleteBillRecord(id) {
+  ensureReady();
+  if (!navigator.onLine) throw new Error('Connect to the internet before deleting a bill.');
+  const reference = doc(db, BILL_RECORDS, String(id).replaceAll('/', '-'));
+  await runTransaction(db, async transaction => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists()) throw new Error('Bill no longer exists. Refresh.');
+    transaction.delete(reference);
+  });
+  billCache.delete(String(id));
 }
