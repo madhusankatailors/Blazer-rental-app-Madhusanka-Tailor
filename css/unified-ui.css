@@ -28,3 +28,57 @@ body.rental-app :is(input,select,textarea),body#billingApp :is(input,select,text
 .shoe-app .shoe-input:focus{border-color:#0c566b!important;box-shadow:0 0 0 3px #0c566b22!important}
 .shoe-app .mt-app-header .app-settings-menu button{background-color:transparent}
 .shoe-app .mt-app-header .app-settings-menu .app-settings-logout{background:#0c566b}
+
+
+/* Mobile app shell v2: preserves all functions and existing DOM identifiers. */
+@media(max-width:767px){
+ :root{--mt-mobile-tab-height:68px}
+ html{scroll-padding-top:16px;scroll-behavior:smooth}
+ body.rental-app,body#billingApp,body.shoe-app{max-width:100%;overflow-x:clip;-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
+ body.rental-app,body#billingApp,body.shoe-app{padding-bottom:calc(var(--mt-mobile-tab-height) + env(safe-area-inset-bottom, 0px) + 18px)!important}
+ .mt-header-top{min-height:60px;border-bottom:none}
+ .mt-header-bottom{padding:4px 0 14px;min-height:0}
+ .mt-app-header .mt-nav{display:none!important}
+ .mt-brand-icon{width:39px;height:39px}
+ .mt-brand-copy strong{font-size:14px}
+ .mt-brand-copy small{letter-spacing:.09em}
+ .mt-page-meta{order:0;width:100%;align-items:center;min-height:42px}
+ .mt-page-meta h1{font-size:19px;line-height:1.3}
+ .mt-page-meta p{font-size:11px}
+ .mt-new-booking{min-height:44px;min-width:44px;max-width:48%;font-size:12px}
+ .mt-header-tools .mt-sync-status{max-width:100px}
+ /* Dedicated navigation keeps all three destinations available without covering content. */
+ .mt-mobile-bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:85;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));height:calc(var(--mt-mobile-tab-height) + env(safe-area-inset-bottom,0px));padding:5px max(12px,env(safe-area-inset-left,0px)) calc(5px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-right,0px));background:rgba(255,255,255,.97);border-top:1px solid #d7e3e8;box-shadow:0 -8px 28px rgba(16,52,65,.085);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+ .mt-mobile-bottom-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:50px;border-radius:12px;color:#5d7280;text-decoration:none;font-size:11px;line-height:1.1;font-weight:700;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+ .mt-mobile-bottom-nav a[aria-current=page]{background:#e9f5f7;color:#0c566b}
+ .mt-mobile-bottom-nav a:focus-visible{outline:3px solid #49b7c9;outline-offset:1px}
+ .mt-mobile-bottom-nav .mt-mobile-tab-icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px}
+ .mt-mobile-bottom-nav svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+ .mt-mobile-bottom-nav .mt-mobile-tab-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+ .mt-header-shell{width:calc(100% - 28px)}
+ body.rental-app main,body#billingApp main,body.shoe-app main{max-width:100%;min-width:0}
+ body.rental-app main,body#billingApp main{padding-left:12px!important;padding-right:12px!important}
+ body.shoe-app .shoe-main{padding-left:12px;padding-right:12px;min-width:0}
+ /* Non-destructive form ergonomics: fields stay present and usable. */
+ body.rental-app :is(input:not([type=checkbox]):not([type=radio]),select,textarea),body#billingApp :is(input:not([type=checkbox]):not([type=radio]),select,textarea),body.shoe-app :is(input:not([type=checkbox]):not([type=radio]),select,textarea){max-width:100%;min-height:44px;font-size:16px}
+ body.rental-app textarea,body#billingApp textarea,body.shoe-app textarea{min-height:75px}
+ body.rental-app :is(button,[role=button]),body#billingApp :is(button,[role=button]),body.shoe-app :is(button,[role=button]){touch-action:manipulation}
+ body.rental-app :is(.rounded-xl,.rounded-lg),body#billingApp :is(.rounded-xl,.rounded-lg){scroll-margin-top:15px}
+ /* Preserve wide tables with deliberate horizontal scrolling rather than hiding columns. */
+ .billing-main :is(.overflow-x-auto,.billing-table-scroll),.shoe-app .overflow-x-auto{overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+ .billing-main .billing-entry-table,.billing-main .billing-saved-table,.shoe-app .shoe-table{min-width:600px}
+ /* Shoe section navigation: ALL sections remain available. */
+ .shoe-app .shoe-tabs{display:flex!important;overflow-x:auto!important;overflow-y:hidden;max-width:100%;flex-wrap:nowrap!important;gap:6px;scroll-snap-type:x proximity;scrollbar-width:thin;-webkit-overflow-scrolling:touch;padding:8px}
+ .shoe-app .shoe-tabs .shoe-tab{flex:0 0 auto;scroll-snap-align:start;min-height:43px;padding:9px 13px;white-space:nowrap}
+ .shoe-app .workspace-card,.shoe-app .workspace-body,.shoe-app .shoe-stat{min-width:0}
+ .shoe-app .stock-variant,.shoe-app .shoe-row{max-width:100%}
+ .shoe-app .variant-actions,.shoe-app .sale-card-actions{flex-wrap:wrap}
+ .shoe-app .variant-actions button,.shoe-app .sale-card-actions button{min-height:42px}
+ /* Modal usability under bottom nav and iPhone home indicator. */
+ .detail-modal-panel{max-width:calc(100vw - 20px)!important;max-height:calc(100dvh - 32px)!important;overflow:auto}
+ .billing-preview-modal [role=dialog],.billing-customer-modal [role=dialog]{max-width:100%}
+ .mt-settings-menu{z-index:110}
+}
+@media(min-width:768px){.mt-mobile-bottom-nav{display:none!important}}
+@media(max-width:370px){.mt-brand-copy strong{font-size:12px}.mt-brand-copy small{font-size:7px}.mt-page-meta h1{font-size:17px}.mt-new-booking{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.mt-mobile-bottom-nav *{animation:none!important;transition:none!important}}
