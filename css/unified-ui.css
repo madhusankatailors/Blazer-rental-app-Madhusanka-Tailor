@@ -75,6 +75,7 @@ body.rental-app :is(input,select,textarea),body#billingApp :is(input,select,text
  .shoe-app .variant-actions,.shoe-app .sale-card-actions{flex-wrap:wrap}
  .shoe-app .variant-actions button,.shoe-app .sale-card-actions button{min-height:42px}
  /* Modal usability under bottom nav and iPhone home indicator. */
+ .detail-modal{z-index:100}
  .detail-modal-panel{max-width:calc(100vw - 20px)!important;max-height:calc(100dvh - 32px)!important;overflow:auto}
  .billing-preview-modal [role=dialog],.billing-customer-modal [role=dialog]{max-width:100%}
  .mt-settings-menu{z-index:110}
