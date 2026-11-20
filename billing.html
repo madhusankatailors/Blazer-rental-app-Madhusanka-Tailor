@@ -34,6 +34,7 @@
   </script>
 
   <link rel="stylesheet" href="css/billing.css" />
+  <link rel="stylesheet" href="css/unified-ui.css" />
   <link rel="manifest" href="manifest.webmanifest" />
 </head>
 
@@ -47,29 +48,20 @@
     </div>
   </div>
 
-  <header class="bg-brand-800 text-white shadow-lg safe-x">
-    <div class="max-w-7xl mx-auto px-3 py-3 sm:py-4 sm:px-4 lg:px-6">
-      <div class="billing-header-main flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-3 min-w-0">
-          <img src="assets/madhusanka-logo.png" alt="Madhusanka Tailors" class="h-14 w-16 object-contain shrink-0" />
-          <div class="min-w-0">
-            <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight leading-tight" data-i18n="billingAppTitle">Digital Billing</h1>
-            <p class="text-brand-100 text-xs sm:text-sm mt-1" data-i18n="businessName">Madhusanka Tailors</p>
-          </div>
-        </div>
-
-        <div class="billing-header-actions flex flex-wrap items-center gap-2">
-          <nav class="app-module-nav" aria-label="Application sections">
-            <a href="index.html" data-i18n="navRentals">Rentals</a>
-            <a href="billing.html" aria-current="page" data-i18n="navBilling">Billing</a>
-            <a href="shoe.html" data-i18n="navShoes">Shoes</a>
-            <a href="customers.html" data-i18n="navCustomers">Customers</a>
-          </nav>
-
-          <details class="app-settings">
-            <summary aria-label="Settings" title="Settings"><span aria-hidden="true">&#9881;</span></summary>
-            <div class="app-settings-menu">
-              <div class="inline-flex rounded-lg bg-slate-100 p-1 gap-1" role="group" aria-label="Language">
+  <header class="mt-app-header" data-mt-shared-header="1">
+    <div class="mt-header-shell">
+      <div class="mt-header-top">
+        <a class="mt-brand" href="index.html" aria-label="Madhusanka Tailors — Rentals">
+          <span class="mt-brand-icon"><img src="assets/madhusanka-logo.png" alt="" /></span>
+          <span class="mt-brand-copy"><strong>Madhusanka Tailors</strong><small>BUSINESS MANAGER</small></span>
+        </a>
+        <div class="mt-header-tools">
+          <p id="billingSyncStatus" class="mt-sync-status app-sync-status" aria-live="polite"></p>
+          <details class="app-settings mt-settings">
+            <summary aria-label="Settings and language" title="Settings" aria-haspopup="true"><span aria-hidden="true">⚙</span><span class="mt-settings-label">Settings</span></summary>
+            <div class="app-settings-menu mt-settings-menu">
+              <span class="mt-settings-caption">Language / භාෂාව</span>
+              <div class="mt-language-buttons" role="group" aria-label="Language">
                 <button type="button" id="langEn" data-i18n="langEnglish">English</button>
                 <button type="button" id="langSi" data-i18n="langSinhala">සිංහල</button>
               </div>
@@ -78,9 +70,13 @@
           </details>
         </div>
       </div>
-
-      <div class="mt-2 flex justify-end">
-        <p id="billingSyncStatus" class="app-sync-status text-brand-100 text-[10px] sm:text-xs font-medium"></p>
+      <div class="mt-header-bottom">
+        <nav class="app-module-nav mt-nav" aria-label="Main sections">
+          <a href="index.html" data-i18n="navRentals">Rentals</a>
+<a href="billing.html" aria-current="page" data-i18n="navBilling">Billing</a>
+<a href="shoe.html" data-i18n="navShoes">Shoes</a>
+        </nav>
+        <div class="mt-page-meta"><div><h1>Digital Billing</h1><p>Invoices and customer payments</p></div></div>
       </div>
     </div>
   </header>
@@ -465,6 +461,7 @@
 
   <script src="js/i18n.js"></script>
     <script src="js/pwa.js"></script>
+  <script src="js/unified-ui.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script type="module" src="js/billing.js"></script>

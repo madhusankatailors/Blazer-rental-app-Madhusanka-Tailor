@@ -1,10 +1,9 @@
-const CACHE_NAME = "madhusanka-tailors-shell-v6";
+const CACHE_NAME = "madhusanka-tailors-shell-v8-ui-shoe-payments";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./billing.html",
   "./shoe.html",
-  "./customers.html",
   "./login.html",
   "./setup.html",
   "./manifest.webmanifest",
@@ -13,6 +12,7 @@ const APP_SHELL = [
   "./css/billing.css",
   "./css/receipt.css",
   "./css/shoe.css",
+  "./css/unified-ui.css",
   "./js/app.js",
   "./js/auth.js",
   "./js/billing.js",
@@ -22,11 +22,10 @@ const APP_SHELL = [
   "./js/login.js",
   "./js/phone-validation.js",
   "./js/shoe.js",
-  "./js/customers.js",
   "./js/storage.js",
   "./js/ui-dialog.js",
   "./js/pwa.js",
-  "./css/customers.css",
+  "./js/unified-ui.js",
   "./assets/madhusanka-logo.png",
   "./assets/paid-seal.png",
 ];
