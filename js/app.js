@@ -646,6 +646,7 @@ function matchesQuickFilter(rental) {
     case 'overdue': return isOverdue(rental);
     case 'pending': return rental.status === 'Pending';
     case 'returned': return rental.status === 'Returned';
+    case 'balance': return getRentalBalance(rental) > 0;
     default: return true;
   }
 }
@@ -1165,6 +1166,7 @@ function fitRentalReceiptPreview() {
 
 function openRentalReceiptPreview(rental) {
   if (!els.rentalReceiptPreviewModal || !els.rentalReceiptPaperStage) return;
+  if (activeDetailRentalId) closeDetailModal();
   const source = new DOMParser().parseFromString(buildReceiptHtml(rental), 'text/html');
   const paper = source.body.querySelector('.billing-paper');
   if (!paper) return;
@@ -1309,12 +1311,16 @@ function renderRentalCard(rental) {
     </div>
     <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-xs sm:text-sm mb-3">
       <div>
-        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thBooking'))}</dt>
-        <dd>${formatDate(rental.bookingDate)}</dd>
+        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thPickup'))}</dt>
+        <dd>${formatDate(rental.pickupDate)}</dd>
       </div>
       <div>
         <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thCode'))}</dt>
         <dd class="font-mono font-semibold">${renderBlazerCodesCell(rental)}</dd>
+      </div>
+      <div class="col-span-2">
+        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thReturn'))}</dt>
+        <dd class="font-semibold">${formatDate(rental.returnDate)}</dd>
       </div>
       <div class="col-span-2">
         <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thColor'))}</dt>
@@ -1333,10 +1339,6 @@ function renderRentalCard(rental) {
         <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thNotes'))}</dt>
         <dd class="text-slate-600">${renderNotesCell(rental.notes, 60)}</dd>
       </div>` : ''}
-      <div class="col-span-2">
-        <dt class="text-slate-400 text-[10px] sm:text-xs uppercase tracking-wide">${escapeHtml(t('thStatus'))}</dt>
-        <dd>${renderStatusBadge(rental)}</dd>
-      </div>
     </dl>
     ${renderDetailsButton(rental.id, true)}
   `;
@@ -2161,11 +2163,23 @@ function initEventListeners() {
     if (action === 'prev' && currentPage > 1) {
       currentPage -= 1;
       renderTable();
+      requestAnimationFrame(() => {
+        const pageStart = window.matchMedia('(max-width: 767px)').matches
+          ? els.rentalsCards?.querySelector('.rental-card')
+          : els.tableBody?.querySelector('tr');
+        pageStart?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     }
 
     if (action === 'next' && currentPage < totalPages) {
       currentPage += 1;
       renderTable();
+      requestAnimationFrame(() => {
+        const pageStart = window.matchMedia('(max-width: 767px)').matches
+          ? els.rentalsCards?.querySelector('.rental-card')
+          : els.tableBody?.querySelector('tr');
+        pageStart?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     }
   });
 

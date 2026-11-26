@@ -378,6 +378,7 @@ body.modal-open {
 
 .rental-card {
   padding: 1rem;
+  scroll-margin-top: 5rem;
 }
 
 .rental-card-overdue {
