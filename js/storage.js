@@ -138,14 +138,32 @@ export function updateRentalStatus(id, status) {
 
 export function subscribeBills(onUpdate, onError) {
   try { ensureReady(); } catch (error) { onError?.(error); return () => {}; }
-  migrateBills().then(() => { stopBills = listen(BILL_RECORDS, (cache) => { billCache = cache; }, onUpdate, onError); }).catch(onError);
-  return () => { stopBills?.(); stopBills = null; };
+  let cancelled = false;
+  // Migrate first so the initial snapshot includes legacy bills. Starting the
+  // listener concurrently can render an empty collection and hide old data.
+  migrateBills().then(() => {
+    if (!cancelled) stopBills = listen(BILL_RECORDS, (cache) => { billCache = cache; }, onUpdate, onError);
+  }).catch((error) => {
+    console.error('Bill migration failed:', error);
+    if (!cancelled) onError?.(error);
+  });
+  return () => { cancelled = true; stopBills?.(); stopBills = null; };
 }
 
 export function saveBills(items) {
   try { ensureReady(); } catch (error) { return Promise.reject(error); }
   billQueue = billQueue.then(() => synchronize(BILL_RECORDS, items, billCache, 'bill'));
   return billQueue;
+}
+
+export async function saveBillRecord(item) {
+  ensureReady();
+  const id = recordId(item, 'bill');
+  const data = { ...clean(item), id };
+  const reference = doc(db, BILL_RECORDS, id);
+  await setDoc(reference, { ...data, updatedAt: serverTimestamp() }, { merge: false });
+  billCache.set(id, data);
+  return data;
 }
 
 // Explicit deletions: called only after the application's user confirmation.

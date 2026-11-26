@@ -13,11 +13,22 @@ export function waitForAuth() {
     return Promise.reject(new Error('Firebase is not configured.'));
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let timeoutId;
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) clearTimeout(timeoutId);
       unsubscribe();
       resolve(user);
     });
+    timeoutId = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      unsubscribe();
+      reject(new Error('Authentication check timed out. Check your internet connection.'));
+    }, 12_000);
   });
 }
 
