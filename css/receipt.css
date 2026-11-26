@@ -369,6 +369,37 @@ html[lang="si"] .billing-paper-brand h1 {
   font-size: 2.2mm;
 }
 
+.billing-signatures .billing-signature-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 13mm;
+  padding: 0;
+  border-top: 0;
+}
+
+.billing-signatures .billing-signature-name {
+  min-height: 7mm;
+  margin: 0 0 0.8mm;
+  padding: 0 1mm 0.8mm;
+  border-bottom: 0.3mm solid #756b61;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 2.65mm;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  width: 100%;
+}
+
+.billing-signatures .billing-signature-field small {
+  width: 100%;
+  padding-top: 1.4mm;
+  border-top: 0.3mm solid #4a433c;
+  text-align: center;
+  font-size: 2.2mm;
+}
+
 .billing-signatures .rental-signature {
   padding-top: 0;
   border-top: 0;
@@ -410,4 +441,3 @@ html[lang="si"] .billing-paper-brand h1 {
   #billingPaper { position: absolute !important; left: 0 !important; top: 0 !important; width: 148mm !important; min-height: 210mm !important; margin: 0 !important; transform: none !important; box-shadow: none !important; }
   .billing-paper-table th, .billing-paper-rule, .billing-paper-balance, .billing-paid-seal { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
-
