@@ -1,4 +1,4 @@
-const CACHE_NAME = "madhusanka-tailors-shell-v10-billing-mobile-actions";
+const CACHE_NAME = "madhusanka-tailors-shell-v11-billing-saved-list";
 const APP_SHELL = [
   "./",
   "./index.html",
