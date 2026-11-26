@@ -76,7 +76,7 @@
 <a href="billing.html" aria-current="page" data-i18n="navBilling">Billing</a>
 <a href="shoe.html" data-i18n="navShoes">Shoes</a>
         </nav>
-        <div class="mt-page-meta"><div><h1>Digital Billing</h1><p>Invoices and customer payments</p></div></div>
+        <div class="mt-page-meta"><div><h1>Digital Billing</h1><p>Invoices and customer payments</p></div><button type="button" id="billingNewBillBtn" aria-controls="billingFormSection" aria-expanded="false" class="mt-new-booking"><span aria-hidden="true">＋</span><span data-i18n="billingNewBill">New Bill</span></button></div>
       </div>
     </div>
   </header>
@@ -95,7 +95,7 @@
     </section>
 
     <!-- Bill form -->
-    <section id="billingFormSection" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <section id="billingFormSection" hidden class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       <div class="px-4 py-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 id="billingFormTitle" class="text-lg font-semibold text-slate-900" data-i18n="billingNewBill">New Bill</h2>
@@ -449,8 +449,8 @@
               Wedding garments must be returned on the agreed date. Damage or loss will be charged according to the amount determined by the establishment. Late returns are subject to a Rs. 200/- charge per day.
             </p>
             <div class="billing-signatures">
-              <span data-i18n="billingCustomerSignature">Customer Signature</span>
-              <span data-i18n="billingAuthorizedSignature">Authorized Signature</span>
+              <span class="billing-signature-field"><strong id="previewCustomerSignature" class="billing-signature-name">-</strong><small data-i18n="billingCustomerSignature">Customer Signature</small></span>
+              <span class="billing-signature-field"><strong class="billing-signature-name">Madhusanka Tailors</strong><small data-i18n="billingAuthorizedSignature">Authorized Signature</small></span>
             </div>
           </footer>
           </article>

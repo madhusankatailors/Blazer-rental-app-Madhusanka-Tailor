@@ -64,6 +64,7 @@ const els = {
   logoutBtn: $("billingLogoutBtn"),
 
   form: $("billingForm"),
+  formSection: $("billingFormSection"),
   formTitle: $("billingFormTitle"),
   editId: $("billingEditId"),
   billNo: $("billNo"),
@@ -81,6 +82,7 @@ const els = {
   formAdvance: $("billingFormAdvance"),
   formBalance: $("billingFormBalance"),
   clearBtn: $("billingClearBtn"),
+  newBillBtn: $("billingNewBillBtn"),
   saveBtn: $("billingSaveBtn"),
   savePreviewBtn: $("billingSavePreviewBtn"),
 
@@ -132,6 +134,7 @@ const els = {
   previewAdvance: $("previewAdvance"),
   previewBalance: $("previewBalance"),
   previewPaymentStatus: $("previewPaymentStatus"),
+  previewCustomerSignature: $("previewCustomerSignature"),
   paidSeal: $("billingPaidSeal"),
 
   itemSelect: $("billingItemSelect"),
@@ -825,7 +828,19 @@ function resetForm() {
   refreshBillingItemPicker();
 }
 
+function setBillingFormVisible(visible, scroll = false) {
+  if (!els.formSection) return;
+  els.formSection.hidden = !visible;
+  els.newBillBtn?.setAttribute("aria-expanded", String(visible));
+  if (visible && scroll) {
+    requestAnimationFrame(() => {
+      els.formSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+}
+
 function fillForm(bill) {
+  setBillingFormVisible(true);
   currentBillId = bill.id;
   els.editId.value = bill.id;
 
@@ -852,9 +867,7 @@ function fillForm(bill) {
   updateFormTotals();
   refreshBillingItemPicker();
 
-  document
-    .getElementById("billingFormSection")
-    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  els.formSection?.scrollIntoView({ behavior: "smooth", block: "start" });
   window.setTimeout(() => els.billNo.focus({ preventScroll: true }), 250);
 }
 
@@ -1360,6 +1373,8 @@ function renderPreview(bill) {
   currentPreviewBill = bill;
 
   els.previewCustomer.textContent = bill.customerName || "—";
+  if (els.previewCustomerSignature)
+    els.previewCustomerSignature.textContent = bill.customerName || "-";
   els.previewPhone.textContent = bill.phone || "—";
   els.previewBillNo.textContent = bill.billNo || "—";
   els.previewBillDate.textContent = formatDate(bill.billDate);
@@ -1658,8 +1673,11 @@ async function handleSave(openAfterSave) {
   setSaveButtonsLoading(true, openAfterSave);
   try {
     const saved = await saveBill(bill);
-    if (saved && openAfterSave)
-      openPreview(normalizeBill(getBillById(bill.id) || bill));
+    if (saved) {
+      const savedBill = normalizeBill(getBillById(bill.id) || bill);
+      resetForm();
+      if (openAfterSave) openPreview(savedBill);
+    }
   } finally {
     setSaveButtonsLoading(false, openAfterSave);
   }
@@ -1715,10 +1733,28 @@ function initEvents() {
     )
       return;
     resetForm();
-    document
-      .getElementById("billingFormSection")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setBillingFormVisible(true, true);
     window.setTimeout(() => els.billNo.focus({ preventScroll: true }), 180);
+  });
+  els.newBillBtn?.addEventListener("click", async () => {
+    const hasDraft = currentBillId
+      || els.billNo.value.trim()
+      || els.customerName.value.trim()
+      || (els.itemsBody?.children.length || 0) > 0;
+    if (hasDraft) {
+      const confirmed = await askAppConfirmation(
+        t("dialogConfirmTitle"),
+        t("billingConfirmClear"),
+        {
+          danger: true,
+          confirmText: t("dialogClear"),
+          cancelText: t("dialogCancel"),
+        },
+      );
+      if (!confirmed) return;
+    }
+    resetForm();
+    setBillingFormVisible(true, true);
   });
 
   els.advance.addEventListener("input", updateFormTotals);
@@ -1779,7 +1815,10 @@ function initEvents() {
     if (scope === "saved-bills") {
       savedBillsPage = page;
       renderSavedBills();
-      els.savedWrap?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const pageStart = compactBillingQuery.matches
+        ? els.savedCards?.querySelector(".billing-saved-card")
+        : els.savedBody?.querySelector("tr");
+      pageStart?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     if (scope === "customer-history") {
       customerHistoryPage = page;
@@ -1900,9 +1939,7 @@ async function init() {
         const requestedBill = getBillById(requestedBillId);
         if (requestedBill) {
           fillForm(requestedBill);
-          document
-            .getElementById("billingFormSection")
-            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          els.formSection?.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }
 
