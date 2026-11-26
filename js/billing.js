@@ -1,5 +1,5 @@
 import { requireAuth, logout } from "./auth.js";
-import { subscribeBills, saveBills as persistBills, deleteBillRecord } from "./storage.js";
+import { subscribeBills, saveBillRecord, deleteBillRecord } from "./storage.js";
 import {
   isValidPhoneNumber,
   updatePhoneFieldState,
@@ -55,6 +55,7 @@ let customerPage = 1;
 let savedBillsPage = 1;
 let customerHistoryPage = 1;
 let currentCustomerId = "";
+let savedSearchActive = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -151,8 +152,24 @@ function todayISO() {
 
 function formatDate(iso) {
   if (!iso) return "—";
+  iso = normalizeDateValue(iso);
   const [year, month, day] = iso.split("-");
   return year && month && day ? `${day}/${month}/${year}` : iso;
+}
+
+function normalizeDateValue(value) {
+  const text = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(text)) {
+    const [day, month, year] = text.split("/");
+    return `${year}-${month}-${day}`;
+  }
+  const date = new Date(text);
+  if (!Number.isNaN(date.getTime())) {
+    const offset = date.getTimezoneOffset();
+    return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 10);
+  }
+  return "";
 }
 
 function formatMoney(value) {
@@ -539,6 +556,13 @@ function normalizePhoneKey(value) {
   return digits;
 }
 
+function timestampOrder(value) {
+  if (value && typeof value.toMillis === "function") return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  const parsed = Date.parse(String(value || ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function normalizeBill(bill) {
   const total = Number(bill?.totalAmount) || 0;
   const legacyPaid = Math.max(
@@ -561,6 +585,9 @@ function normalizeBill(bill) {
 
   return {
     ...bill,
+    billDate: normalizeDateValue(bill?.billDate),
+    receivedDate: normalizeDateValue(bill?.receivedDate),
+    deliveryDate: normalizeDateValue(bill?.deliveryDate),
     customerId,
     paymentType,
     paidAmount: paid,
@@ -640,12 +667,12 @@ function collectFormBill() {
       currentBillId ||
       `bill-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     billNo: els.billNo.value.trim(),
-    billDate: els.billDate.value,
+    billDate: normalizeDateValue(els.billDate.value),
     customerName: els.customerName.value.trim(),
     phone: els.phone.value.trim(),
     customerId: normalizePhoneKey(els.phone.value),
-    receivedDate: els.receivedDate.value,
-    deliveryDate: els.deliveryDate.value,
+    receivedDate: normalizeDateValue(els.receivedDate.value),
+    deliveryDate: normalizeDateValue(els.deliveryDate.value),
     items,
     totalAmount: totals.total,
     paymentType,
@@ -661,6 +688,12 @@ function validateBill(bill) {
   if (!bill.billNo) {
     els.billNo.focus();
     showToast(t("billingErrorBillNo"), "error");
+    return false;
+  }
+
+  if (!bill.billDate) {
+    els.billDate.focus();
+    showToast("Please select a bill date.", "error");
     return false;
   }
 
@@ -701,7 +734,7 @@ function validateBill(bill) {
 
   const duplicate = bills.find(
     (item) =>
-      item.billNo.toLowerCase() === bill.billNo.toLowerCase() &&
+      String(item.billNo || "").trim().toLowerCase() === bill.billNo.toLowerCase() &&
       item.id !== bill.id,
   );
   if (duplicate) {
@@ -758,11 +791,11 @@ function setSaveButtonsLoading(active, openAfterSave = false) {
   target.innerHTML = `<span class="billing-action-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
 }
 
-async function persistCurrentBills() {
+async function persistCurrentBill(bill) {
   setSyncState("saving");
   pendingWrites += 1;
   try {
-    await persistBills(bills);
+    await saveBillRecord(bill);
     setSyncState("saved");
   } catch (error) {
     console.error(error);
@@ -782,7 +815,7 @@ async function saveBill(bill) {
   else bills.unshift(bill);
 
   try {
-    await persistCurrentBills();
+    await persistCurrentBill(bill);
     currentBillId = bill.id;
     els.editId.value = bill.id;
     if (!isUpdate) {
@@ -845,11 +878,11 @@ function fillForm(bill) {
   els.editId.value = bill.id;
 
   els.billNo.value = bill.billNo || "";
-  els.billDate.value = bill.billDate || todayISO();
+  els.billDate.value = normalizeDateValue(bill.billDate) || todayISO();
   els.customerName.value = bill.customerName || "";
   els.phone.value = bill.phone || "";
-  els.receivedDate.value = bill.receivedDate || "";
-  els.deliveryDate.value = bill.deliveryDate || "";
+  els.receivedDate.value = normalizeDateValue(bill.receivedDate);
+  els.deliveryDate.value = normalizeDateValue(bill.deliveryDate);
   const normalized = normalizeBill(bill);
   if (els.paymentType) els.paymentType.value = normalized.paymentType;
   els.advance.value =
@@ -915,9 +948,7 @@ function getCustomerProfiles() {
       };
     })
     .sort((a, b) => {
-      const activityCompare = (b.latestUpdatedAt || "").localeCompare(
-        a.latestUpdatedAt || "",
-      );
+      const activityCompare = timestampOrder(b.latestUpdatedAt) - timestampOrder(a.latestUpdatedAt);
       if (activityCompare !== 0) return activityCompare;
       return (b.latestBillDate || "").localeCompare(a.latestBillDate || "");
     });
@@ -1190,7 +1221,9 @@ function renderCustomerProfileModal() {
 }
 
 function getFilteredBills() {
-  const query = (els.search.value || "").trim().toLowerCase();
+  const query = savedSearchActive
+    ? (els.search.value || "").trim().toLowerCase()
+    : "";
   const sorted = [...bills].sort((a, b) => {
     const dateCompare = (b.billDate || "").localeCompare(a.billDate || "");
     if (dateCompare !== 0) return dateCompare;
@@ -1766,6 +1799,8 @@ function initEvents() {
       window.setTimeout(() => els.advance.focus(), 0);
   });
   els.search.addEventListener("input", () => {
+    if (document.activeElement !== els.search) return;
+    savedSearchActive = true;
     savedBillsPage = 1;
     renderSavedBills();
   });
@@ -1919,6 +1954,16 @@ async function init() {
   const user = await requireAuth();
   if (!user) return;
 
+  // Prevent browsers from restoring stale search text after an authenticated
+  // billing page reload. URL parameters still intentionally apply below.
+  if (els.search) els.search.value = "";
+  if (els.customerSearch) els.customerSearch.value = "";
+  savedSearchActive = false;
+  requestAnimationFrame(() => {
+    if (!requestedCustomer && els.search) els.search.value = "";
+    if (els.customerSearch) els.customerSearch.value = "";
+  });
+
   createItemRows();
   resetForm();
   initEvents();
@@ -1933,6 +1978,7 @@ async function init() {
 
       if (requestedCustomer && els.search && !els.search.value) {
         els.search.value = requestedCustomer;
+        savedSearchActive = true;
         renderSavedBills();
       }
       if (requestedBillId) {
@@ -1963,4 +2009,11 @@ document.addEventListener("DOMContentLoaded", () => {
     hideLoading();
     showToast(t("toastSyncError"), "error");
   });
+});
+
+window.addEventListener("pageshow", () => {
+  if (requestedCustomer) return;
+  if (els.search) els.search.value = "";
+  savedSearchActive = false;
+  if (bills.length) renderSavedBills();
 });
