@@ -872,11 +872,15 @@ function openWhatsAppReminder(rental, type) {
     return;
   }
 
-  const isReturn = type === 'return';
-  const date = formatDate(isReturn ? rental.returnDate : rental.pickupDate);
-  const messageKey = isReturn
-    ? 'whatsAppReturnReminder'
-    : type === 'upcoming' ? 'whatsAppUpcomingReminder' : 'whatsAppPickupReminder';
+  const isReturnReminder = type === 'return' || type === 'overdue';
+  const date = formatDate(isReturnReminder ? rental.returnDate : rental.pickupDate);
+  const messageKey = type === 'overdue'
+    ? 'whatsAppOverdueReminder'
+    : type === 'return'
+      ? 'whatsAppReturnReminder'
+      : type === 'upcoming'
+        ? 'whatsAppUpcomingReminder'
+        : 'whatsAppPickupReminder';
   const message = t(messageKey, {
     name: rental.customerName || '',
     date,
@@ -934,7 +938,7 @@ function renderCalendar() {
         || (type === 'pickup' && (compareDates(rental.pickupDate, todayISO()) > 0 || allowTodayPickupReminder));
       const reminderType = type === 'pickup'
         ? (compareDates(rental.pickupDate, todayISO()) > 0 ? 'upcoming' : 'pickup')
-        : 'return';
+        : type;
       const reminderButton = showReminder
         ? `<button type="button" data-action="calendar-reminder" data-id="${rental.id}" data-reminder-type="${reminderType}" class="calendar-reminder-btn rounded-md bg-[#25D366] px-2 py-1 text-[10px] font-semibold leading-tight text-white hover:bg-[#1fb958]" title="${escapeHtml(t('btnWhatsAppReminder'))}">${escapeHtml(t('btnWhatsAppReminder'))}</button>`
         : '';

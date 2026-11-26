@@ -94,6 +94,8 @@ const translations = {
       "Hello {name}, this is a reminder that your blazer pickup is today ({date}). We will have it ready for you.\n\nIf you have already collected the blazer, please disregard this message.\n\n⚠️ Note: Please do not make normal phone calls to this number, as this line is strictly used for WhatsApp messaging only. For any inquiries, please contact us via Normal Call or WhatsApp at 0778601003.\n\nMadhusanka Tailor's, Dankotuwa",
     whatsAppReturnReminder:
       "Hello {name}, just a quick reminder that your blazer return is due today! {date}. Thank you.\n\nIf you have already returned the blazer, please disregard this message.\n\n⚠️ Note: Please do not make normal phone calls to this number, as this line is strictly used for WhatsApp messaging only. For any inquiries, please contact us via Normal Call or WhatsApp at 0778601003.\n\nMadhusanka Tailor's, Dankotuwa\n\nWe would also love to hear your feedback!\n👉 Leave us a review ⭐\nhttps://g.page/r/CWe0j4fj9KpbEBE/review",
+    whatsAppOverdueReminder:
+      "Hello {name}, this is a friendly reminder that your blazer return date was {date}. The blazer is now overdue, so please return it at the earliest convenience.\n\nIf you have already returned the blazer, please disregard this message.\n\n⚠️ Note: Please do not make normal phone calls to this number, as this line is strictly used for WhatsApp messaging only. For any inquiries, please contact us via Normal Call or WhatsApp at 0778601003.\n\nMadhusanka Tailor's, Dankotuwa",
     whatsAppUpcomingReminder:
       "Hello {name}, this is a reminder about your upcoming blazer booking on {date}. We look forward to seeing you.\n\nIf you have already collected the blazer, please disregard this message.\n\n⚠️ Note: Please do not make normal phone calls to this number, as this line is strictly used for WhatsApp messaging only. For any inquiries, please contact us via Normal Call or WhatsApp at 0778601003.\n\nMadhusanka Tailor's, Dankotuwa", formNewTitle: "New Rental Booking",
     formNewSubtitle: "Fill in the details below to create a new rental entry.",
@@ -435,9 +437,9 @@ const translations = {
     loginPageTitle: "Login | Madhusanka Tailors",
   },
   si: {
-    pageTitle: "බ්ලේසර් උකස් කළමනාකරණය | මධුසංක ටේලර්ස්",
+    pageTitle: "බ්ලේසර් උකස් කළමනාකරණය | මධුසංඛ ටේලර්ස්",
     appTitle: "Blazer Rental Management",
-    businessName: "මධුසංක ටේලර්ස්",
+    businessName: "මධුසංඛ ටේලර්ස්",
     langEnglish: "English",
     langSinhala: "සිංහල",
     statTotalBookings: "මුළු වෙන්කිරීම්",
@@ -476,11 +478,13 @@ const translations = {
     calendarExpand: "දින දර්ශනය දිගහරින්න",
     btnWhatsAppReminder: "WhatsApp මතක් කිරීම",
     whatsAppPickupReminder:
-      "ආයුබෝවන් {name}, ඔබගේ බ්ලේසර් එක ලබාගන්නා දිනය අද ({date}) බව මතක් කරමු. එය ඔබ වෙනුවෙන් සූදානම් කර ඇත.\n\nඔබ දැනටමත් බ්ලේසර් එක ලබාගෙන ඇත්නම්, කරුණාකර මෙම පණිවිඩය නොසලකා හරින්න.\n\n⚠️ විශේෂ දැනුම්දීමයි: කරුණාකර මෙම අංකයට සාමාන්‍ය දුරකථන ඇමතුම් (Normal Calls) ලබාගැනීමෙන් වළකින්න. මෙම දුරකථන අංකය අප ආයතනය විසින් WhatsApp පණිවිඩ සඳහා පමණක් පවත්වාගෙන යනු ලබයි. ඔබට යමක් විමසීමට හෝ දැනගැනීමට අවශ්‍ය නම් කරුණාකර 0778601003 අංකයට Normal Call හෝ WhatsApp මගින් සම්බන්ධ වන්න.\n\nමධුසංක ටේලර්ස්, දන්කොටුව",
+      "ආයුබෝවන් {name}, ඔබගේ බ්ලේසර් එක ලබාගන්නා දිනය අද ({date}) බව මතක් කරමු. එය ඔබ වෙනුවෙන් සූදානම් කර ඇත.\n\nඔබ දැනටමත් බ්ලේසර් එක ලබාගෙන ඇත්නම්, කරුණාකර මෙම පණිවිඩය නොසලකා හරින්න.\n\n⚠️ විශේෂ දැනුම්දීමයි: කරුණාකර මෙම අංකයට සාමාන්‍ය දුරකථන ඇමතුම් (Normal Calls) ලබාගැනීමෙන් වළකින්න. මෙම දුරකථන අංකය අප ආයතනය විසින් WhatsApp පණිවිඩ සඳහා පමණක් පවත්වාගෙන යනු ලබයි. ඔබට යමක් විමසීමට හෝ දැනගැනීමට අවශ්‍ය නම් කරුණාකර 0778601003 අංකයට Normal Call හෝ WhatsApp මගින් සම්බන්ධ වන්න.\n\nමධුසංඛ ටේලර්ස්, දන්කොටුව",
     whatsAppReturnReminder:
-      "ආයුබෝවන් {name}, ඔයාගේ බ්ලේසර් එක රිටන් කරන්න තියෙන්නේ අද {date} කියලා පොඩි මතක් කිරීමක්! ස්තුතියි.\n\nඔබ දැනටමත් බ්ලේසර් එක ආපසු ලබා දී ඇත්නම්, කරුණාකර මෙම පණිවිඩය නොසලකා හරින්න.\n\n⚠️ විශේෂ දැනුම්දීමයි: කරුණාකර මෙම අංකයට සාමාන්‍ය දුරකථන ඇමතුම් (Normal Calls) ලබාගැනීමෙන් වළකින්න. මෙම දුරකථන අංකය අප ආයතනය විසින් WhatsApp පණිවිඩ සඳහා පමණක් පවත්වාගෙන යනු ලබයි. ඔබට යමක් විමසීමට හෝ දැනගැනීමට අවශ්‍ය නම් කරුණාකර 0778601003 අංකයට Normal Call හෝ WhatsApp මගින් සම්බන්ධ වන්න.\n\nමධුසංක ටේලර්ස්, දන්කොටුව\n\nඔබගේ අදහස් දැනගැනීමට අපි කැමතියි!\n👉 අපට review එකක් ලබා දෙන්න ⭐\nhttps://g.page/r/CWe0j4fj9KpbEBE/review",
+      "ආයුබෝවන් {name}, ඔයාගේ බ්ලේසර් එක රිටන් කරන්න තියෙන්නේ අද {date} කියලා පොඩි මතක් කිරීමක්! ස්තුතියි.\n\nඔබ දැනටමත් බ්ලේසර් එක ආපසු ලබා දී ඇත්නම්, කරුණාකර මෙම පණිවිඩය නොසලකා හරින්න.\n\n⚠️ විශේෂ දැනුම්දීමයි: කරුණාකර මෙම අංකයට සාමාන්‍ය දුරකථන ඇමතුම් (Normal Calls) ලබාගැනීමෙන් වළකින්න. මෙම දුරකථන අංකය අප ආයතනය විසින් WhatsApp පණිවිඩ සඳහා පමණක් පවත්වාගෙන යනු ලබයි. ඔබට යමක් විමසීමට හෝ දැනගැනීමට අවශ්‍ය නම් කරුණාකර 0778601003 අංකයට Normal Call හෝ WhatsApp මගින් සම්බන්ධ වන්න.\n\nමධුසංඛ ටේලර්ස්, දන්කොටුව\n\nඔබගේ අදහස් දැනගැනීමට අපි කැමතියි!\n👉 අපට review එකක් ලබා දෙන්න ⭐\nhttps://g.page/r/CWe0j4fj9KpbEBE/review",
+    whatsAppOverdueReminder:
+      "ආයුබෝවන් {name}, ඔබගේ බ්ලේසර් එක ආපසු ගෙවීමට නියමිත දිනය වූයේ {date} දිනයයි. මේදින අවසන් වීමෙන් බ්ලේසර් එක ප්‍රමාද වී ඇති නිසා, කරුණාකර හැකි ඉක්මනින් ආපසු ගෙන්වා යවන්න.\n\nඔබ දැනටමත් බ්ලේසර් එක ආපසු ලබා දී ඇත්නම්, කරුණාකර මෙම පණිවිඩය නොසලකා හරින්න.\n\n⚠️ විශේෂ දැනුම්දීමයි: කරුණාකර මෙම අංකයට සාමාන්‍ය දුරකථන ඇමතුම් (Normal Calls) ලබාගැනීමෙන් වළකින්න. මෙම දුරකථන අංකය අප ආයතනය විසින් WhatsApp පණිවිඩ සඳහා පමණක් පවත්වාගෙන යනු ලබයි. ඔබට යමක් විමසීමට හෝ දැනගැනීමට අවශ්‍ය නම් කරුණාකර 0778601003 අංකයට Normal Call හෝ WhatsApp මගින් සම්බන්ධ වන්න.\n\nමධුසංඛ ටේලර්ස්, දන්කොටුව",
     whatsAppUpcomingReminder:
-      "ආයුබෝවන් {name}, ඔබගේ ඉදිරි බ්ලේසර් වෙන්කිරීම {date} දිනට ඇති බව මතක් කරමු. ඔබව හමුවීමට බලාපොරොත්තු වෙමු.\n\nඔබ දැනටමත් බ්ලේසර් එක ලබාගෙන ඇත්නම්, කරුණාකර මෙම පණිවිඩය නොසලකා හරින්න.\n\n⚠️ විශේෂ දැනුම්දීමයි: කරුණාකර මෙම අංකයට සාමාන්‍ය දුරකථන ඇමතුම් (Normal Calls) ලබාගැනීමෙන් වළකින්න. මෙම දුරකථන අංකය අප ආයතනය විසින් WhatsApp පණිවිඩ සඳහා පමණක් පවත්වාගෙන යනු ලබයි. ඔබට යමක් විමසීමට හෝ දැනගැනීමට අවශ්‍ය නම් කරුණාකර 0778601003 අංකයට Normal Call හෝ WhatsApp මගින් සම්බන්ධ වන්න.\n\nමධුසංක ටේලර්ස්, දන්කොටුව", analyticsNoData: "දත්ත නැත",
+      "ආයුබෝවන් {name}, ඔබගේ ඉදිරි බ්ලේසර් වෙන්කිරීම {date} දිනට ඇති බව මතක් කරමු. ඔබව හමුවීමට බලාපොරොත්තු වෙමු.\n\nඔබ දැනටමත් බ්ලේසර් එක ලබාගෙන ඇත්නම්, කරුණාකර මෙම පණිවිඩය නොසලකා හරින්න.\n\n⚠️ විශේෂ දැනුම්දීමයි: කරුණාකර මෙම අංකයට සාමාන්‍ය දුරකථන ඇමතුම් (Normal Calls) ලබාගැනීමෙන් වළකින්න. මෙම දුරකථන අංකය අප ආයතනය විසින් WhatsApp පණිවිඩ සඳහා පමණක් පවත්වාගෙන යනු ලබයි. ඔබට යමක් විමසීමට හෝ දැනගැනීමට අවශ්‍ය නම් කරුණාකර 0778601003 අංකයට Normal Call හෝ WhatsApp මගින් සම්බන්ධ වන්න.\n\nමධුසංඛ ටේලර්ස්, දන්කොටුව", analyticsNoData: "දත්ත නැත",
     formNewTitle: "නව උකස් වෙන්කිරීම",
     formNewSubtitle: "නව උකස් වාර්තාවක් සෑදීමට පහත විස්තර පුරවන්න.",
     formEditTitle: "උකස් වෙන්කිරීම සංස්කරණය",
@@ -831,7 +835,7 @@ const translations = {
     billingPrint: "මුද්‍රණය",
     billingDownloadPdf: "PDF බාගන්න",
     billingPreparingPdf: "PDF සකස් කරමින්...",
-    billingBrandName: "මධුසංක ටේලර්ස්",
+    billingBrandName: "මධුසංඛ ටේලර්ස්",
     billingAddress: "නො.29, සුපර් මාකට් ලේන්, දන්කොටුව.",
     billingTelShort: "දුරකථන",
     billingMobileShort: "මොබයිල්",
@@ -864,7 +868,7 @@ const translations = {
     billingConfirmDelete: "බිල් අංක {number} මකා දමන්නද?",
     billingConfirmClear:
       "පාරිභෝගික, ගෙවීම් සහ අයිතම සියල්ල හිස් කර නව බිලක් ආරම්භ කරන්නද?",
-    loginPageTitle: "පිවිසීම | මධුසංක ටේලර්ස්",
+    loginPageTitle: "පිවිසීම | මධුසංඛ ටේලර්ස්",
   },
 };
 
